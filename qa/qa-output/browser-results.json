@@ -2,7 +2,7 @@
   "status": "passed",
   "checks": [
     {
-      "name": "two separate browser wallets receive exactly Rs 1,000 each",
+      "name": "two separate browser wallets receive Rs 5,000 each with half auto-reserved",
       "status": "passed"
     },
     {
@@ -26,7 +26,7 @@
       "status": "passed"
     },
     {
-      "name": "top-up adds actual server test credit and daily limit disables repeats",
+      "name": "top-up adds actual server credit and daily limit disables repeats",
       "status": "passed"
     },
     {

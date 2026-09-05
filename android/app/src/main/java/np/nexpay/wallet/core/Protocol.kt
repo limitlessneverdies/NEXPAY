@@ -57,21 +57,58 @@ object Protocol {
         require(r.getString("requestId").matches(Regex("[A-Za-z0-9_-]{16,80}"))) { "Invalid receive request" }
         return r
     }
-    data class Payment(val note: JSONObject, val data: JSONObject, val hash: String, val amount: Long)
-    fun readPayment(raw: String, issuer: String, recipient: String, now: Long = System.currentTimeMillis()): Payment {
+    const val MAX_HOPS = 3
+    const val QR_HOPS = 1
+    data class Payment(val note: JSONObject, val data: JSONObject, val hash: String, val amount: Long, val hop: Int)
+    data class ChainLink(val sender: String, val to: String, val amount: Long, val hash: String)
+
+    fun chainDepth(packet: String): Int = try { peek(packet).optInt("hop", 0) } catch (_: Exception) { 0 }
+
+    fun readPayment(raw: String, issuer: String, recipient: String, now: Long = System.currentTimeMillis(), settlement: Boolean = false): Payment {
         val data = peek(raw)
-        val note = verify("voucher", data.getString("voucher"), issuer)
+        val hop = data.optInt("hop", 0)
+        require(hop in 0..MAX_HOPS) { "Transfer chain is too long or invalid" }
+        val chainArr = data.optJSONArray("chain")
+        val links = (0 until (chainArr?.length() ?: 0)).map { chainArr!!.getString(it) }
+        require(links.size == hop) { "Transfer chain does not match hop count" }
+        val note = verify("voucher", if (hop == 0) data.getString("voucher") else peek(links[0]).getString("voucher"), issuer)
         require(note.getString("issuer") == sha(unb64(issuer))) { "Payment belongs to a different server" }
         require(note.getLong("amount") in 1..OFFLINE_LIMIT) { "Offline amount exceeds limit" }
         require(note.getString("owner") == walletId(note.getString("ownerKey"))) { "Note owner mismatch" }
-        verify("payment", raw, note.getString("ownerKey"))
-        require(data.getString("to") == recipient && recipient != note.getString("owner")) { "Payment is addressed to a different wallet" }
-        val paid = if (data.has("amountMinor")) data.getLong("amountMinor") else note.getLong("amount")
-        require(paid in 1..note.getLong("amount")) { "Payment exceeds the reserved note value" }
-        val created = note.getLong("createdAt"); val expires = note.getLong("expiresAt"); val time = data.getLong("createdAt")
-        require(expires - created == NOTE_LIFE && now < expires && time in (created - SKEW)..expires && time <= now + SKEW) { "Offline note expired or invalid device clock" }
-        require(note.getString("id").matches(Regex("[A-Za-z0-9_-]{16,80}")) && data.getString("requestId").matches(Regex("[A-Za-z0-9_-]{16,80}"))) { "Invalid payment identifier" }
-        return Payment(note, data, sha(canonical(data).toByteArray(Charsets.UTF_8)), paid)
+        require(note.getString("id").matches(Regex("[A-Za-z0-9_-]{16,80}"))) { "Invalid note identifier" }
+        val ncreated = note.getLong("createdAt"); val nexpires = note.getLong("expiresAt")
+        require(nexpires - ncreated == NOTE_LIFE) { "Invalid note lifetime" }
+        var parentAmount = note.getLong("amount"); var parentHash = ""; var parentTo = ""
+        for (i in 0 until hop) {
+            val ld = peek(links[i])
+            require(ld.optInt("hop", 0) == i) { "Broken chain continuity" }
+            val lf = if (ld.has("fromKey")) ld.getString("fromKey") else if (i == 0) note.getString("ownerKey") else error("Chain link is missing its sender key")
+            publicKey(lf)
+            require(ld.getString("requestId").matches(Regex("[A-Za-z0-9_-]{16,80}"))) { "Invalid chain request" }
+            if (i == 0) require(walletId(lf) == note.getString("owner")) { "Only the note owner can start a transfer" }
+            else { require(walletId(lf) == parentTo) { "Chain sender does not follow the previous hop" }; require(ld.getString("prev") == parentHash) { "Chain link does not reference the previous transfer" } }
+            verify("payment", links[i], lf)
+            val lto = ld.getString("to"); require(lto != walletId(lf)) { "Choose another wallet" }
+            val lamt = ld.getLong("amountMinor"); require(lamt in 1..parentAmount) { "Chain amount exceeds what was received" }
+            val lct = ld.getLong("createdAt"); require(lct in (ncreated - SKEW)..nexpires) { "Chain transfer outside note lifetime" }
+            val lh = sha(canonical(ld).toByteArray(Charsets.UTF_8))
+            parentHash = lh; parentAmount = lamt; parentTo = lto
+        }
+        val senderKey = if (data.has("fromKey")) data.getString("fromKey") else note.getString("ownerKey")
+        publicKey(senderKey)
+        if (hop == 0) require(walletId(senderKey) == note.getString("owner")) { "Only the note owner can start a transfer" }
+        else { require(walletId(senderKey) == parentTo) { "Transfer sender does not follow the chain" }; require(data.getString("prev") == parentHash) { "Transfer does not reference the previous transfer" } }
+        verify("payment", raw, senderKey)
+        require(data.getString("to") == recipient) { "Payment is addressed to a different wallet" }
+        if (hop == 0) require(recipient != note.getString("owner")) { "Choose another wallet" } else require(recipient != walletId(senderKey)) { "Choose another wallet" }
+        val paid = if (data.has("amountMinor")) data.getLong("amountMinor") else parentAmount
+        require(paid in 1..parentAmount) { "Payment exceeds the available value" }
+        val time = data.getLong("createdAt")
+        val earliest = if (hop == 0) ncreated else ncreated
+        require(time in (earliest - SKEW)..nexpires && time <= now + SKEW) { "Offline note expired or invalid device clock" }
+        require(now < nexpires + if (settlement) REDEEM_GRACE else 0) { "Offline note expired" }
+        require(data.getString("requestId").matches(Regex("[A-Za-z0-9_-]{16,80}"))) { "Invalid payment identifier" }
+        return Payment(note, data, sha(canonical(data).toByteArray(Charsets.UTF_8)), paid, hop)
     }
     fun canonical(value: Any?): String = when (value) {
         null, JSONObject.NULL -> "null"

@@ -1,11 +1,11 @@
 import { createHash, createPublicKey, sign, verify, randomUUID, generateKeyPairSync } from 'node:crypto';
-export const LIMITS = Object.freeze({ requestBytes:32768, grant:500000, offline:500000, online:10000000, noteLife:86400000, redeemGrace:604800000, clockSkew:300000 });
+export const LIMITS = Object.freeze({ requestBytes:32768, grant:500000, offline:500000, online:10000000, noteLife:86400000, redeemGrace:604800000, clockSkew:300000, maxHops:3, chainBytes:48000, qrHops:1 });
 export class Fault extends Error { constructor(code, message, status=400) { super(message); this.code=code; this.status=status; } }
 export const fail=(ok,code,message,status=400)=>{if(!ok)throw new Fault(code,message,status);};
 export const hash=s=>createHash('sha256').update(s).digest('hex');
 export const b64=b=>Buffer.from(b).toString('base64url');
 export function unb64(s) {
-  fail(typeof s==='string' && s.length>0 && s.length<=24000 && /^[A-Za-z0-9_-]+$/.test(s),'BAD_ENCODING','Invalid base64url.');
+  fail(typeof s==='string' && s.length>0 && s.length<=48000 && /^[A-Za-z0-9_-]+$/.test(s),'BAD_ENCODING','Invalid base64url.');
   const b=Buffer.from(s,'base64url'); fail(b64(b)===s,'BAD_ENCODING','Non-canonical base64url.'); return b;
 }
 export function publicKey(encoded) {
@@ -25,7 +25,7 @@ export function pack(kind, data, privateKey) {
   return `p1.${encoded}.${b64(signature)}`;
 }
 export function unpack(envelope) {
-  fail(typeof envelope==='string' && envelope.length<=23000,'BAD_ENVELOPE','Payment message is too large or invalid.');
+  fail(typeof envelope==='string' && envelope.length<=65536,'BAD_ENVELOPE','Payment message is too large or invalid.');
   const pieces=envelope.split('.'); fail(pieces.length===3 && pieces[0]==='p1','BAD_ENVELOPE','Invalid signed message.');
   const raw=unb64(pieces[1]); const signature=unb64(pieces[2]);
   fail(signature.length>=8 && signature.length<=72,'BAD_SIGNATURE','Invalid ECDSA signature size.',401);
@@ -54,16 +54,49 @@ export function readReceive(raw,now=Date.now()) {
 }
 export function readPayment(raw,issuerKey,recipient,now=Date.now(),settlement=false) {
   const outer=unpack(raw).data;
-  const note=open('voucher',outer.voucher,issuerKey);
+  const hop=outer.hop===undefined?0:outer.hop;
+  fail(Number.isSafeInteger(hop)&&hop>=0&&hop<=LIMITS.maxHops,'BAD_HOP','Transfer chain is too long or invalid.');
+  const links=outer.chain===undefined?[]:outer.chain;
+  fail(Array.isArray(links)&&links.length===hop,'BAD_CHAIN','Transfer chain does not match hop count.');
+  const noteCert=hop===0?outer.voucher:unpack(links[0]).data.voucher;
+  const note=open('voucher',noteCert,issuerKey);
   const issuer=hash(typeof issuerKey==='string'?unb64(issuerKey):issuerKey.export({type:'spki',format:'der'}));
   fail(note.issuer===issuer,'WRONG_ISSUER','This note belongs to another server.');
   amount(note.amount,LIMITS.offline);publicKey(note.ownerKey);operationId(note.id);
   fail(walletId(note.ownerKey)===note.owner,'BAD_OWNER','Note owner does not match key.');
-  const payment=open('payment',raw,note.ownerKey);
-  fail(payment.to===recipient&&payment.to!==note.owner,'WRONG_RECIPIENT','This payment is not addressed to your wallet.',403);operationId(payment.requestId);
   fail(Number.isSafeInteger(note.createdAt)&&Number.isSafeInteger(note.expiresAt)&&note.expiresAt-note.createdAt===LIMITS.noteLife,'BAD_NOTE','Invalid note lifetime.');
-  fail(Number.isSafeInteger(payment.createdAt)&&payment.createdAt>=note.createdAt-LIMITS.clockSkew&&payment.createdAt<=note.expiresAt&&payment.createdAt<=now+LIMITS.clockSkew,'BAD_TIME','Invalid payment time.');
+  const ancestors=[];let parentHash=null,parentAmount=note.amount,parentTo=null;
+  for(let i=0;i<hop;i++){
+    fail(typeof links[i]==='string'&&links[i].length<=LIMITS.chainBytes,'BAD_CHAIN','Broken chain link.');
+    const ld=unpack(links[i]).data;
+    fail((ld.hop===undefined?0:ld.hop)===i,'BAD_CHAIN','Broken chain continuity.');
+    const lfrom=typeof ld.fromKey==='string'?ld.fromKey:(i===0?note.ownerKey:null);
+    fail(typeof lfrom==='string','BAD_CHAIN','Chain link is missing its sender key.');
+    publicKey(lfrom);operationId(ld.requestId);
+    if(i===0)fail(walletId(lfrom)===note.owner,'WRONG_SENDER','Only the note owner can start a transfer.');
+    else{fail(walletId(lfrom)===parentTo,'BAD_CHAIN','Chain sender does not follow the previous hop.');fail(ld.prev===parentHash,'BAD_CHAIN','Chain link does not reference the previous transfer.');}
+    open('payment',links[i],lfrom);
+    const lto=text(ld.to,'Recipient',128);
+    fail(lto!==walletId(lfrom),'SELF_PAYMENT','Choose another wallet.');
+    const lamt=amount(ld.amountMinor,parentAmount);
+    fail(Number.isSafeInteger(ld.createdAt)&&ld.createdAt>=note.createdAt-LIMITS.clockSkew&&ld.createdAt<=note.expiresAt,'BAD_TIME','Invalid chain time.');
+    const lhash=hash(canonical(ld));
+    ancestors.push({sender:walletId(lfrom),to:lto,amount:lamt,hash:lhash,createdAt:ld.createdAt});
+    parentHash=lhash;parentAmount=lamt;parentTo=lto;
+  }
+  const senderKey=typeof outer.fromKey==='string'?outer.fromKey:note.ownerKey;
+  if(hop===0)fail(walletId(senderKey)===note.owner,'WRONG_SENDER','Only the note owner can start a transfer.');
+  else fail(walletId(senderKey)===parentTo,'BAD_CHAIN','Transfer sender does not follow the chain.');
+  const payment=open('payment',raw,senderKey);operationId(payment.requestId);
+  fail(payment.to===text(payment.to,'Recipient',128),'BAD_INPUT','Recipient is invalid.');
+  if(hop===0)fail(payment.to!==note.owner,'SELF_PAYMENT','Choose another wallet.');
+  else fail(payment.to!==walletId(senderKey),'SELF_PAYMENT','Choose another wallet.');
+  fail(payment.to===recipient,'WRONG_RECIPIENT','This payment is not addressed to your wallet.',403);
+  if(hop>0)fail(payment.prev===parentHash,'BAD_CHAIN','Transfer does not reference the previous transfer.');
+  const cap=hop===0?note.amount:parentAmount;
+  const amountMinor=payment.amountMinor===undefined?cap:amount(payment.amountMinor,cap);
+  const earliest=hop===0?note.createdAt:ancestors[hop-1].createdAt;
+  fail(Number.isSafeInteger(payment.createdAt)&&payment.createdAt>=earliest-LIMITS.clockSkew&&payment.createdAt<=note.expiresAt&&payment.createdAt<=now+LIMITS.clockSkew,'BAD_TIME','Invalid payment time.');
   fail(now<note.expiresAt+(settlement?LIMITS.redeemGrace:0),'EXPIRED_NOTE',settlement?'Redemption window has closed.':'This offline note has expired.');
-  const amountMinor=payment.amountMinor===undefined?note.amount:amount(payment.amountMinor,note.amount);
-  return {note,payment,paymentHash:hash(canonical(payment)),amountMinor};
+  return {note,noteCert,payment,paymentHash:hash(canonical(payment)),amountMinor,hop,ancestors,senderId:walletId(senderKey)};
 }

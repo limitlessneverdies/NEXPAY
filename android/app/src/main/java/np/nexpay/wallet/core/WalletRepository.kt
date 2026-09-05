@@ -124,18 +124,38 @@ class WalletRepository(context: Context) {
         check(state.value.ready) { "Set up online first" }; val now = System.currentTimeMillis()
         return store.sign("receive", Protocol.obj("v" to 1, "walletId" to state.value.walletId, "publicKey" to store.publicKey, "name" to state.value.name, "requestId" to Protocol.newId(), "createdAt" to now, "expiresAt" to now + Protocol.NOTE_LIFE))
     }
-    fun makeOffline(receiveRaw: String, amount: Long): String {
+    fun makeOffline(receiveRaw: String, amount: Long, method: String = "QR"): String {
         val r = Protocol.readReceive(receiveRaw); require(r.getString("walletId") != state.value.walletId) { "Choose another wallet" }
         var packet = ""
         store.update { root ->
             require(root.array("queue").objects().none { it.optString("status") == "queued" }) { "Sync your queued request before sending offline" }
             val outgoing = root.array("outgoing").objects()
-            val n = root.getJSONObject("serverState").array("vouchers").objects().filter { it.getLong("amount") >= amount && it.getString("status") == "reserved" && it.getLong("expires") > System.currentTimeMillis() && outgoing.none { o -> o.getString("id") == it.getString("id") } }.minByOrNull { it.getLong("amount") }
-                ?: error("No reserved balance covers this amount. Reserve more while online.")
-            Protocol.verify("voucher", n.getString("certificate"), root.getJSONObject("config").getString("issuerPublicKey"))
-            val d = Protocol.obj("v" to 1, "voucher" to n.getString("certificate"), "to" to r.getString("walletId"), "requestId" to r.getString("requestId"), "createdAt" to System.currentTimeMillis(), "amountMinor" to amount)
-            packet = store.sign("payment", d)
-            root.array("outgoing").put(Protocol.obj("id" to n.getString("id"), "packet" to packet, "amount" to amount, "to" to r.getString("walletId"), "name" to r.getString("name"), "status" to "prepared"))
+            val myKey = store.publicKey
+            val own = root.getJSONObject("serverState").array("vouchers").objects().filter { it.getLong("amount") >= amount && it.getString("status") == "reserved" && it.getLong("expires") > System.currentTimeMillis() && outgoing.none { o -> o.getString("id") == it.getString("id") } }.minByOrNull { it.getLong("amount") }
+            if (own != null) {
+                Protocol.verify("voucher", own.getString("certificate"), root.getJSONObject("config").getString("issuerPublicKey"))
+                val d = Protocol.obj("v" to 1, "voucher" to own.getString("certificate"), "fromKey" to myKey, "to" to r.getString("walletId"), "requestId" to r.getString("requestId"), "createdAt" to System.currentTimeMillis(), "amountMinor" to amount, "hop" to 0)
+                packet = store.sign("payment", d)
+                root.array("outgoing").put(Protocol.obj("id" to own.getString("id"), "hash" to Protocol.sha(Protocol.canonical(Protocol.peek(packet)).toByteArray(Charsets.UTF_8)), "parent" to JSONObject.NULL, "packet" to packet, "amount" to amount, "to" to r.getString("walletId"), "name" to r.getString("name"), "status" to "prepared"))
+            } else {
+                val cands = root.array("incoming").objects().filter { it.getString("status") == "pending" || it.getString("status") == "settled" }.mapNotNull { inc ->
+                    try {
+                        val p = Protocol.peek(inc.getString("packet")); val ph = p.optInt("hop", 0)
+                        val spent = outgoing.filter { o -> o.optString("parent") == inc.getString("id") }.sumOf { it.getLong("amount") }
+                        if (inc.getLong("amount") - spent >= amount) Triple(inc, ph, inc.getLong("amount") - spent) else null
+                    } catch (_: Exception) { null }
+                }.sortedBy { it.third }
+                val best = cands.firstOrNull() ?: error("No reserved balance covers this amount. Reserve more while online.")
+                val newHop = best.second + 1
+                require(newHop <= Protocol.MAX_HOPS) { "Transfer chain is too long" }
+                require(!(method == "QR" && newHop > Protocol.QR_HOPS)) { "Chain too long for QR. Use Bluetooth." }
+                val parentData = Protocol.peek(best.first.getString("packet"))
+                val parentChain = (0 until (parentData.optJSONArray("chain")?.length() ?: 0)).map { parentData.getJSONArray("chain").getString(it) }
+                val parentHash = Protocol.sha(Protocol.canonical(parentData).toByteArray(Charsets.UTF_8))
+                val d = Protocol.obj("v" to 1, "fromKey" to myKey, "to" to r.getString("walletId"), "requestId" to r.getString("requestId"), "createdAt" to System.currentTimeMillis(), "amountMinor" to amount, "hop" to newHop, "prev" to parentHash, "chain" to org.json.JSONArray((parentChain + best.first.getString("packet")).toList()))
+                packet = store.sign("payment", d)
+                root.array("outgoing").put(Protocol.obj("id" to Protocol.sha(Protocol.canonical(Protocol.peek(packet)).toByteArray(Charsets.UTF_8)), "hash" to Protocol.sha(Protocol.canonical(Protocol.peek(packet)).toByteArray(Charsets.UTF_8)), "parent" to best.first.getString("id"), "packet" to packet, "amount" to amount, "to" to r.getString("walletId"), "name" to r.getString("name"), "status" to "prepared"))
+            }
         }
         // Persist first: transmission failure must never make the note spendable again.
         publish(message = "Payment locked to this recipient. Share or retry the same message.")
@@ -156,8 +176,7 @@ class WalletRepository(context: Context) {
         val a = Protocol.verify("ack", ack, r.getString("publicKey"))
         val expected = Protocol.sha(Protocol.canonical(Protocol.peek(packet)).toByteArray(Charsets.UTF_8))
         require(a.getString("paymentHash") == expected && a.getString("walletId") == r.getString("walletId")) { "Recipient acknowledgement mismatch" }
-        val id = Protocol.peek(Protocol.peek(packet).getString("voucher")).getString("id")
-        store.update { it.array("outgoing").objects().find { o -> o.getString("id") == id }?.put("status", "delivered") }
+        store.update { it.array("outgoing").objects().find { o -> o.optString("hash") == expected || o.getString("id") == expected }?.put("status", "delivered") }
         publish(message = "Delivered to recipient. Settlement is still pending.")
     }
     fun clearFailed() { store.update { it.put("queue", JSONArray(it.array("queue").objects().filter { j -> j.optString("status") != "failed" })) }; publish() }

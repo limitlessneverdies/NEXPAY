@@ -71,11 +71,23 @@ class Nearby(
         val filter = IntentFilter().apply { addAction(BluetoothDevice.ACTION_FOUND); addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED); addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION); addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION); addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION) }
         ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED); registered = true
     }
-    private fun io(block: suspend () -> Unit) { val gen = generation; scope.launch(Dispatchers.IO) { try { block() } catch (e: Exception) { if (gen == generation) withContext(Dispatchers.Main) { onError(e) } } } }
+    private fun isConnectionLoss(e: Throwable): Boolean {
+        var t: Throwable? = e
+        while (t != null) {
+            if (t is SocketException || t is EOFException || t is SocketTimeoutException) return true
+            val m = (t.message ?: "").lowercase()
+            if (m.contains("closed") || m.contains("abort") || m.contains("reset") || m.contains("broken pipe") || m.contains("recv failed") || m.contains("send failed") || m.contains("connection lost")) return true
+            t = t.cause
+        }
+        return false
+    }
+    private fun friendly(e: Throwable): Throwable =
+        if (isConnectionLoss(e)) IllegalStateException("Connection lost. Keep both phones close with this screen open, then retry.") else e
+    private fun io(block: suspend () -> Unit) { val gen = generation; scope.launch(Dispatchers.IO) { try { block() } catch (e: Exception) { if (gen == generation) withContext(Dispatchers.Main) { onError(friendly(e)) } } } }
     private suspend fun status(s: String) = withContext(Dispatchers.Main) { onStatus(s) }
-    private fun guard(session: WireSession) { scope.launch { delay(90_000); runCatching { session.close() } } }
-    private fun sender(s: WireSession) { closeables.add(s); guard(s); io { val raw = s.read(); Protocol.readReceive(raw); session = s; withContext(Dispatchers.Main) { onRecipient(raw); onStatus("Recipient connected. Check the name and wallet ID, then confirm payment.") } } }
-    private fun receiver(s: WireSession, raw: String) { closeables.add(s); guard(s); io {
+    private fun guard(session: WireSession, onExpire: () -> Unit) { val gen = generation; scope.launch { delay(120_000); if (gen == generation) { runCatching { session.close() }; onExpire() } } }
+    private fun sender(s: WireSession) { closeables.add(s); guard(s) { if (session === s) session = null }; io { val raw = s.read(); Protocol.readReceive(raw); session = s; withContext(Dispatchers.Main) { onRecipient(raw); onStatus("Recipient connected. Check the name and wallet ID, then confirm payment.") } } }
+    private fun receiver(s: WireSession, raw: String) { closeables.add(s); guard(s) {}; io {
         s.use { it.write(raw); val packet = it.read(); val ack = acceptPayment(packet); it.write(ack) }; status("Payment saved on this phone. Pending server settlement.")
     } }
     fun startBluetoothReceive(code: String) {
@@ -129,7 +141,14 @@ class Nearby(
     }
     suspend fun deliver(packet: String): String = withContext(Dispatchers.IO) {
         val s = session ?: error("Nearby connection lost. Reconnect or share the saved payment code.")
-        s.write(packet); val ack = s.read(); s.close(); session = null; ack
+        try {
+            s.write(packet); val ack = s.read(); s.close(); session = null; ack
+        } catch (e: Exception) {
+            if (!isConnectionLoss(e)) throw e
+            try {
+                s.write(packet); val ack = s.read(); s.close(); session = null; ack
+            } catch (e2: Exception) { throw friendly(e2) }
+        }
     }
     fun stopTransfer() {
         generation++; mode = ""; wifiConnecting = false; session = null

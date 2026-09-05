@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
             authenticate {
                 if (selectedMethod == "Online") work { repo.enqueue("pay", Protocol.obj("to" to r.getString("walletId"), "amountMinor" to value, "note" to note)); if (repo.state.value.connected && repo.state.value.queued == 0 && repo.state.value.failed.isEmpty()) go("Wallet") }
                 else {
-                    paymentPacket = repo.makeOffline(recipientCode, value)
+                    paymentPacket = repo.makeOffline(recipientCode, value, selectedMethod)
                     when(selectedMethod) {
                         "Bluetooth", "Wi-Fi Direct" -> work { val ack = nearby.deliver(paymentPacket); repo.verifyAck(ack, paymentPacket, recipientCode); radioStatus = "Delivered. Waiting for server settlement." }
                         "NFC" -> { radioStatus = "Tap the SAME receiver again to deliver. Keep phones together."; nfc.start(paymentPacket, { raw, ack -> runSafe { requireNotNull(ack); repo.verifyAck(ack, paymentPacket, raw); nfc.stop(); radioStatus = "Delivered. Waiting for server settlement." } }, { localError = it.message ?: "NFC failed; payment is saved in your outbox" }) }
