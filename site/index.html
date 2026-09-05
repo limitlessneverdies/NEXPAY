@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Paila — A little less distance.</title>
-<meta name="description" content="Paila is a Nepali test wallet for connected days and the moments in between. Online and offline test payments. Test credit only — never real money.">
+<title>Paila — Secure offline payments. No signal needed.</title>
+<meta name="description" content="Paila is a secure offline payment system: signed, single-use payment notes delivered by QR, Bluetooth, Wi-Fi Direct or NFC — settling exactly once when you're back online.">
 <style>
 :root{
   --lime:#DFFF91; --ink:#1B211E; --warm:#EEEDF1; --card:#FFFFFF;
@@ -13,20 +13,22 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--warm);color:var(--ink);line-height:1.6}
 .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
-header.nav{position:sticky;top:0;background:rgba(238,237,241,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);z-index:10}
+header.nav{position:sticky;top:0;background:rgba(28,32,31,.94);backdrop-filter:blur(8px);border-bottom:1px solid #333;z-index:10}
 header.nav .wrap{display:flex;align-items:center;gap:14px;padding:12px 20px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;text-decoration:none;color:var(--ink)}
-.logo .mark{background:var(--lime);border-radius:14px;padding:2px 12px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;text-decoration:none;color:#EDF2EB}
+.logo .mark{background:var(--lime);color:var(--ink);border-radius:14px;padding:2px 12px}
 nav.links{margin-left:auto;display:flex;gap:16px;flex-wrap:wrap}
-nav.links a{color:var(--ink);text-decoration:none;font-weight:600;font-size:14px}
+nav.links a{color:#EDF2EB;text-decoration:none;font-weight:600;font-size:14px}
 .btn{display:inline-block;background:var(--ink);color:#fff;border-radius:99px;padding:14px 28px;font-weight:700;text-decoration:none;font-size:16px}
 .btn.lime{background:var(--lime);color:var(--ink)}
-.hero{padding:72px 0 40px;display:grid;grid-template-columns:1.1fr .9fr;gap:32px;align-items:center}
-@media(max-width:820px){.hero{grid-template-columns:1fr}}
-.hero h1{font-size:56px;line-height:1.05;margin:0 0 12px;letter-spacing:-2px}
-.hero p.sub{font-size:19px;color:var(--muted);margin:0 0 24px}
-.pill{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:6px 16px;font-weight:700;font-size:13px;letter-spacing:.5px;margin-bottom:16px}
-.shot{background:var(--card);border:1px solid var(--line);border-radius:28px;padding:12px}
+.hero{background:var(--dark);color:#EDF2EB;border-radius:0 0 32px 32px;padding:72px 0 56px}
+.hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:32px;align-items:center}
+@media(max-width:820px){.hero .wrap{grid-template-columns:1fr}}
+.hero h1{font-size:58px;line-height:1.03;margin:0 0 14px;letter-spacing:-2px}
+.hero h1 em{font-style:normal;color:var(--lime)}
+.hero p.sub{font-size:19px;color:#ACB7AD;margin:0 0 24px}
+.pill{display:inline-block;background:rgba(223,255,145,.14);border:1px solid var(--lime);color:var(--lime);border-radius:99px;padding:6px 16px;font-weight:700;font-size:13px;letter-spacing:.5px;margin-bottom:16px}
+.shot{background:#282E29;border:1px solid #424B43;border-radius:28px;padding:12px}
 .shot img{width:100%;border-radius:18px;display:block}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:36px 0}
 @media(max-width:820px){.stats{grid-template-columns:repeat(2,1fr)}}
@@ -34,7 +36,7 @@ nav.links a{color:var(--ink);text-decoration:none;font-weight:600;font-size:14px
 .stat b{font-size:30px;display:block;color:var(--lime)}
 section{padding:40px 0}
 h2{font-size:34px;letter-spacing:-1px;margin:0 0 8px}
-p.lead{color:var(--muted);font-size:17px;max-width:640px}
+p.lead{color:var(--muted);font-size:17px;max-width:660px}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:24px}
 @media(max-width:820px){.grid{grid-template-columns:1fr}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px}
@@ -42,17 +44,17 @@ p.lead{color:var(--muted);font-size:17px;max-width:640px}
 .card p{margin:0;color:var(--muted);font-size:15px}
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:24px}
 @media(max-width:820px){.steps{grid-template-columns:1fr 1fr}}
-.step{background:var(--lime);border-radius:20px;padding:22px}
+.step{background:var(--lime);border-radius:20px;padding:22px;color:var(--ink)}
 .step b{font-size:26px}
-.honest{background:var(--dark);color:#EDF2EB;border-radius:28px;padding:36px;margin-top:8px}
-.honest h2{color:var(--lime)}
-.honest ul{margin:12px 0 0;padding-left:20px}
-.honest li{margin:6px 0}
+.secure{background:var(--dark);color:#EDF2EB;border-radius:28px;padding:36px;margin-top:8px}
+.secure h2{color:var(--lime)}
+.secure ul{margin:12px 0 0;padding-left:20px}
+.secure li{margin:8px 0}
+.secure li b{color:var(--lime)}
 .author{display:flex;gap:20px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:28px;margin-top:24px;flex-wrap:wrap}
-.avatar{width:84px;height:84px;border-radius:50%;background:var(--lime);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800}
+.avatar{width:84px;height:84px;border-radius:50%;background:var(--lime);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:var(--ink)}
 .dl{text-align:center;padding:56px 0}
 .dl .btn{font-size:18px;padding:16px 40px}
-code{background:#1C201F;color:#DFFF91;border-radius:8px;padding:2px 8px;font-size:14px}
 footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-size:14px}
 footer a{color:var(--ink);font-weight:600}
 </style>
@@ -61,84 +63,84 @@ footer a{color:var(--ink);font-weight:600}
 <header class="nav"><div class="wrap">
   <a class="logo" href="#"><span class="mark">p.</span> paila</a>
   <nav class="links">
-    <a href="#features">Features</a><a href="#how">How it works</a>
+    <a href="#features">System</a><a href="#how">How it works</a>
     <a href="#security">Security</a><a href="#docs">Docs</a><a href="#author">Author</a>
   </nav>
 </div></header>
 
-<div class="wrap">
-  <div class="hero">
-    <div>
-      <span class="pill">TEST WALLET · NOT REAL MONEY</span>
-      <h1>A little less distance.</h1>
-      <p class="sub">A wallet for connected days. And the moments in between. Pay online in seconds, or go fully offline with QR, Bluetooth, Wi-Fi Direct or NFC — and settle when you're back.</p>
-      <a class="btn lime" href="https://github.com/limitlessneverdies/paila/releases/latest">Download the app</a>
-      <p class="sub" style="margin-top:14px;font-size:14px">Android APK · free test credit · no bank account needed</p>
-    </div>
-    <div class="shot"><img src="screenshot-setup.png" alt="Paila wallet setup screen"></div>
+<div class="hero"><div class="wrap">
+  <div>
+    <span class="pill">🔒 SECURE OFFLINE PAYMENT SYSTEM</span>
+    <h1>Money moves.<br><em>Even with zero bars.</em></h1>
+    <p class="sub">Paila signs single-use payment notes on your device and delivers them by QR, Bluetooth, Wi-Fi Direct or NFC — no internet, no middleman in the moment. When you're back online, the ledger settles each note <b>exactly once</b>.</p>
+    <a class="btn lime" href="https://github.com/limitlessneverdies/paila/releases/latest">Download the app</a>
+    <p class="sub" style="margin-top:14px;font-size:14px">Android APK · ECDSA-signed notes · Keystore-held keys</p>
   </div>
+  <div class="shot"><img src="screenshot-setup.png" alt="Paila wallet app"></div>
+</div></div>
 
+<div class="wrap">
   <div class="stats">
-    <div class="stat"><b>31/31</b>server tests passing</div>
-    <div class="stat"><b>21/21</b>browser payment checks</div>
-    <div class="stat"><b>Rs 1,000</b>free test credit on signup</div>
     <div class="stat"><b>4</b>offline transports, zero internet needed</div>
+    <div class="stat"><b>1</b>settle per note — replays rejected</div>
+    <div class="stat"><b>31/31</b>ledger security tests passing</div>
+    <div class="stat"><b>256-bit</b>ECDSA device signatures</div>
   </div>
 
   <section id="features">
-    <h2>Everything a test wallet should be.</h2>
-    <p class="lead">Real ledger, real cryptography, honest limits. Nothing fake, nothing hidden.</p>
+    <h2>A payment system built for no-signal.</h2>
+    <p class="lead">Every note is cryptographically signed, bound to one recipient, capped, expiring — and verified offline before it's ever accepted.</p>
     <div class="grid">
-      <div class="card"><h3>⚡ Online payments</h3><p>Instant server-settled transfers with a signed review step. Double-entry ledger, idempotent retries.</p></div>
-      <div class="card"><h3>📴 Offline pocket</h3><p>Reserve exact-amount notes up to Rs 500 before losing signal. Single-use, 24-hour expiry.</p></div>
-      <div class="card"><h3>📷 QR exchange</h3><p>Signed receive codes and payments as QR. Camera permission only when scanning.</p></div>
-      <div class="card"><h3>🔵 Bluetooth</h3><p>Secure RFCOMM delivery between nearby phones, with pairing and reconnect handling.</p></div>
+      <div class="card"><h3>✍️ Signed notes</h3><p>ECDSA P-256 signatures over amount, recipient, expiry and issuer. Tampering is detected on the spot — even offline.</p></div>
+      <div class="card"><h3>🎯 One recipient only</h3><p>Each note is locked to a single wallet. Redirecting it to someone else fails verification.</p></div>
+      <div class="card"><h3>🔂 Single-use by design</h3><p>Notes can't be split or re-spent. First valid redemption settles; replays return the original result.</p></div>
+      <div class="card"><h3>📷 QR exchange</h3><p>Signed codes as QR. Camera permission is requested only for scanning.</p></div>
+      <div class="card"><h3>🔵 Bluetooth</h3><p>Secure RFCOMM delivery with pairing, acknowledgement signing and reconnect support.</p></div>
       <div class="card"><h3>📶 Wi-Fi Direct</h3><p>Fast phone-to-phone transfer with no router and no mobile data.</p></div>
-      <div class="card"><h3>📲 NFC tap-tap</h3><p>Two-tap exchange between HCE-capable phones. Experimental, clearly labelled.</p></div>
-      <div class="card"><h3>🔐 Device-held keys</h3><p>ECDSA P-256 signing keys in the Android Keystore. AES-GCM encrypted local storage.</p></div>
-      <div class="card"><h3>🔄 Safe sync</h3><p>Exactly-once settlement per operation. Queued requests survive app kills and retries.</p></div>
-      <div class="card"><h3>🌓 Opal interface</h3><p>Light-first redesign with dark mode, 200% font scaling, TalkBack labels, 320dp support.</p></div>
+      <div class="card"><h3>📲 NFC tap-tap</h3><p>Two-tap exchange between HCE-capable phones: read once, deliver once.</p></div>
+      <div class="card"><h3>🔐 Keystore-held keys</h3><p>Signing keys live in the Android Keystore. Local state is AES-GCM encrypted.</p></div>
+      <div class="card"><h3>⏳ Expiry + escrow</h3><p>Notes expire in 24 hours, reserved funds sit in escrow — never double-counted online.</p></div>
     </div>
   </section>
 
   <section id="how">
-    <h2>How it works.</h2>
+    <h2>How a payment flies.</h2>
     <div class="steps">
-      <div class="step"><b>1</b><br>Create your wallet with a name. The server grants <b>Rs 1,000 test credit</b>.</div>
-      <div class="step"><b>2</b><br>Online: scan, review, confirm. Money moves instantly.</div>
-      <div class="step"><b>3</b><br>Offline: reserve a note, tap or scan with a friend. Receipt stays pending.</div>
-      <div class="step"><b>4</b><br>Reconnect and sync. First valid redemption settles — exactly once.</div>
+      <div class="step"><b>1</b><br>While online, reserve an exact-amount note. Funds move to escrow.</div>
+      <div class="step"><b>2</b><br>Go offline. The receiver shows their signed code; you sign a note for them.</div>
+      <div class="step"><b>3</b><br>Deliver by QR, Bluetooth, Wi-Fi Direct or NFC. They verify and save a pending receipt.</div>
+      <div class="step"><b>4</b><br>Reconnect and sync. The ledger settles it once — then it's spendable.</div>
     </div>
   </section>
 
-  <section id="security" class="honest">
-    <h2>Honest security.</h2>
-    <p>No hype. What this is and isn't:</p>
+  <section id="security" class="secure">
+    <h2>Security, stated plainly.</h2>
     <ul>
-      <li><b>Test credit only.</b> No bank, no KYC, no cash-out, no real NPR. The server refuses real-money mode.</li>
-      <li><b>Offline double-spend is unsolved</b> — a compromised phone can sign one note twice; only the first redemption settles. Disclosed, tested, and shown in the UI.</li>
-      <li><b>APKs can be unpacked.</b> R8 obfuscation raises the cost; issuer keys stay on the server, never in the app.</li>
-      <li><b>No account recovery.</b> Uninstalling loses the test wallet. Never use with real funds.</li>
+      <li><b>Signed, not trusted.</b> Every note is verified for issuer, owner signature, recipient binding, amount and expiry — by the receiver, before acceptance.</li>
+      <li><b>Exactly-once settlement.</b> Operation IDs make retries safe and replays worthless.</li>
+      <li><b>Server-side authority.</b> Balances, escrow and issuer keys live on the server. The app holds no secrets worth stealing.</li>
+      <li><b>Known limit:</b> a compromised phone can sign one note for two people offline — only the first settles. Demonstrated by an automated test, shown in the UI.</li>
+      <li><b>Test credit only.</b> The network runs on Rs 1,000 trial grants, not real NPR. No bank, no cash-out — by design, for now.</li>
     </ul>
   </section>
 
   <section id="docs">
     <h2>Docs.</h2>
-    <p class="lead">Everything is in the repo:</p>
+    <p class="lead">Protocol, proofs and limits — all in the repo:</p>
     <div class="grid">
       <div class="card"><h3>📖 Start here</h3><p><a href="https://github.com/limitlessneverdies/paila/blob/main/START_HERE.md">START_HERE.md</a> — run the server, build the app.</p></div>
-      <div class="card"><h3>🧪 Test report</h3><p><a href="https://github.com/limitlessneverdies/paila/blob/main/qa/TEST_REPORT.md">qa/TEST_REPORT.md</a> — what passed, what didn't.</p></div>
+      <div class="card"><h3>🧪 Test report</h3><p><a href="https://github.com/limitlessneverdies/paila/blob/main/qa/TEST_REPORT.md">qa/TEST_REPORT.md</a> — 31 server + 21 browser checks.</p></div>
       <div class="card"><h3>🛡️ Security model</h3><p><a href="https://github.com/limitlessneverdies/paila/blob/main/docs/SECURITY.md">docs/SECURITY.md</a> — boundaries and blockers.</p></div>
     </div>
   </section>
 
   <section id="author">
-    <h2>Who made this.</h2>
+    <h2>Who built this.</h2>
     <div class="author">
       <div class="avatar">B</div>
       <div>
         <h3 style="margin:0">Bishowdeep Bhusal</h3>
-        <p style="margin:4px 0;color:var(--muted)">Built Paila because distance shouldn't stop a payment — for Nepal's connected days and the signal-less moments in between. Design, Android app, test ledger, and docs, crafted as one original work.</p>
+        <p style="margin:4px 0;color:var(--muted)">Designed and built Paila as a secure offline-first payment system — for Nepal's connected days and the signal-less moments in between. Protocol, Android app, ledger server and docs, one original work.</p>
       </div>
     </div>
   </section>
@@ -150,7 +152,7 @@ footer a{color:var(--ink);font-weight:600}
 </div>
 
 <footer><div class="wrap">
-  Paila · test environment by <b>Bishowdeep Bhusal</b> · <a href="https://github.com/limitlessneverdies/paila">GitHub</a> · Test credit only. No real money. Do not disable Play Protect.
+  Paila · secure offline payment system by <b>Bishowdeep Bhusal</b> · <a href="https://github.com/limitlessneverdies/paila">GitHub</a> · Test credit only. No real money. Do not disable Play Protect.
 </div></footer>
 </body>
 </html>

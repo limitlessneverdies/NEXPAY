@@ -1,4 +1,8 @@
-# Paila — Android test wallet + payment server
+# Paila — secure offline payment system
+
+**Pay with zero bars.** Paila signs single-use payment notes on-device and delivers them by QR, Bluetooth, Wi-Fi Direct or NFC — settling exactly once when back online. It runs on test credit (Rs 1,000 trial grants), not real money.
+
+Made by **Bishowdeep Bhusal**. Marketing site: [`site/`](site/index.html) (deployed via GitHub Pages).
 
 ## Interface v2 — Opal
 
@@ -7,8 +11,6 @@ Start with **Paila-interactive-design.html**: open it in Chrome or another moder
 The actual test wallet is `web/` served by the included Node server. It creates real test-ledger balances and supports the verified flows described below. The native Android Compose source has also been restyled; it remains uncompiled and needs build/device validation.
 
 **Verified:** 31 server tests, 21 browser payment/UI checks, 30 preview layout checks across ten states, plus individual visual review of the final captures. See `qa/TEST_REPORT.md` and `docs/DESIGN.md`.
-
-Made by **Bishowdeep Bhusal**. Marketing site: [`site/`](site/index.html) (deployed via GitHub Pages).
 
 
 **Status: development handoff, NOT a production payment service.**
