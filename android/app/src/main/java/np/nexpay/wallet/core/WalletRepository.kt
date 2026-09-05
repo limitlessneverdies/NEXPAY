@@ -1,4 +1,4 @@
-package np.paila.wallet.core
+package np.nexpay.wallet.core
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +18,7 @@ data class Receipt(val id: String, val amount: Long, val status: String, val err
 data class Entry(val id: String, val amount: Long, val name: String, val kind: String, val created: Long)
 data class WalletState(
     val ready: Boolean = false, val name: String = "", val walletId: String = "", val balance: Long = 0,
+    val reserved: Long = 0, val total: Long = 0,
     val server: String = "", val issuer: String = "", val connected: Boolean = false, val busy: Boolean = false,
     val error: String = "", val message: String = "", val notes: List<Note> = emptyList(), val incoming: List<Receipt> = emptyList(),
     val outgoing: List<Receipt> = emptyList(), val activity: List<Entry> = emptyList(), val queued: Int = 0, val nextTopup: Long = 0,
@@ -35,6 +36,7 @@ class WalletRepository(context: Context) {
         val sent = root.array("outgoing").objects()
         mutable.value = WalletState(
             ready = s.has("walletId"), name = s.optString("name"), walletId = s.optString("walletId"), balance = s.optLong("balanceMinor"),
+            reserved = s.optLong("reservedMinor"), total = s.optLong("totalMinor"),
             server = root.optString("server"), issuer = root.optJSONObject("config")?.optString("issuerFingerprint") ?: "", connected = connected,
             busy = busy, error = error, message = message,
             notes = (s.optJSONArray("vouchers") ?: JSONArray()).objects().map { n -> Note(n.getString("id"), n.getLong("amount"), n.getLong("expires"), sent.any { it.getString("id") == n.getString("id") }, n.getString("status")) },
@@ -52,7 +54,7 @@ class WalletRepository(context: Context) {
         try {
             val url = Api.serverUrl(server); val displayName = Protocol.safeName(name)
             val config = Api.call(url, "/v1/config")
-            require(config.getString("mode") == "test" && config.getInt("protocol") == 1) { "This app only connects to a Paila test server" }
+            require(config.getString("mode") == "test" && config.getInt("protocol") == 1) { "This app only connects to the NexPay network" }
             Protocol.publicKey(config.getString("issuerPublicKey"))
             require(config.getString("issuerFingerprint") == Protocol.sha(Protocol.unb64(config.getString("issuerPublicKey")))) { "Invalid server identity" }
             val old = store.read(); old.optJSONObject("config")?.let { require(it.getString("issuerPublicKey") == config.getString("issuerPublicKey")) { "This device already belongs to another issuer. Do not replace the wallet." } }
@@ -60,7 +62,7 @@ class WalletRepository(context: Context) {
             val request = Protocol.obj("v" to 1, "publicKey" to store.publicKey, "name" to displayName, "opId" to Protocol.newId(), "ts" to System.currentTimeMillis())
             val s = Api.call(url, "/v1/wallets", store.sign("register", request))
             require(s.getString("walletId") == Protocol.walletId(store.publicKey)) { "Server returned a different wallet" }
-            store.update { it.put("serverState", s) }; publish(connected = true, busy = false, message = "Your wallet has Rs 1,000 test credit.")
+            store.update { it.put("serverState", s) }; publish(connected = true, busy = false, message = "Welcome to NexPay. Rs 5,000 ready.")
         } catch (e: Exception) { publish(connected = false, busy = false, error = e.message ?: "Could not create wallet") }
     } }
     private fun call(root: JSONObject, op: String, data: JSONObject, opId: String): JSONObject {
@@ -89,7 +91,7 @@ class WalletRepository(context: Context) {
                 try {
                     call(root, job.getString("op"), job.getJSONObject("data"), job.getString("id"))
                     store.update { it.put("queue", JSONArray(it.array("queue").objects().filter { j -> j.getString("id") != job.getString("id") })) }
-                    message = when (job.getString("op")) { "pay" -> "Payment settled."; "topup" -> "Rs 1,000 test credit added."; "reserve" -> "Offline note is ready."; "reclaim" -> "Expired note refunded."; else -> "Done." }
+                    message = when (job.getString("op")) { "pay" -> "Payment settled."; "topup" -> "Rs 5,000 added."; "reserve" -> "Offline note is ready."; "reclaim" -> "Expired note refunded."; else -> "Done." }
                 } catch (e: ApiError) {
                     if (e.status in listOf(400, 403, 404, 409) || e.code == "TOPUP_LIMIT") {
                         store.update { it.array("queue").objects().find { j -> j.getString("id") == job.getString("id") }?.put("status", "failed")?.put("error", e.message) }
@@ -128,10 +130,10 @@ class WalletRepository(context: Context) {
         store.update { root ->
             require(root.array("queue").objects().none { it.optString("status") == "queued" }) { "Sync your queued request before sending offline" }
             val outgoing = root.array("outgoing").objects()
-            val n = root.getJSONObject("serverState").array("vouchers").objects().firstOrNull { it.getLong("amount") == amount && it.getString("status") == "reserved" && it.getLong("expires") > System.currentTimeMillis() && outgoing.none { o -> o.getString("id") == it.getString("id") } }
-                ?: error("No unused offline note for this exact amount. Prepare one while online.")
+            val n = root.getJSONObject("serverState").array("vouchers").objects().filter { it.getLong("amount") >= amount && it.getString("status") == "reserved" && it.getLong("expires") > System.currentTimeMillis() && outgoing.none { o -> o.getString("id") == it.getString("id") } }.minByOrNull { it.getLong("amount") }
+                ?: error("No reserved balance covers this amount. Reserve more while online.")
             Protocol.verify("voucher", n.getString("certificate"), root.getJSONObject("config").getString("issuerPublicKey"))
-            val d = Protocol.obj("v" to 1, "voucher" to n.getString("certificate"), "to" to r.getString("walletId"), "requestId" to r.getString("requestId"), "createdAt" to System.currentTimeMillis())
+            val d = Protocol.obj("v" to 1, "voucher" to n.getString("certificate"), "to" to r.getString("walletId"), "requestId" to r.getString("requestId"), "createdAt" to System.currentTimeMillis(), "amountMinor" to amount)
             packet = store.sign("payment", d)
             root.array("outgoing").put(Protocol.obj("id" to n.getString("id"), "packet" to packet, "amount" to amount, "to" to r.getString("walletId"), "name" to r.getString("name"), "status" to "prepared"))
         }
@@ -143,9 +145,8 @@ class WalletRepository(context: Context) {
         val root = store.read(); val issuer = root.getJSONObject("config").getString("issuerPublicKey")
         val p = Protocol.readPayment(packet, issuer, state.value.walletId)
         store.update { current ->
-            val old = current.array("incoming").objects().find { it.getString("id") == p.note.getString("id") }
-            require(old == null || old.getString("hash") == p.hash) { "A different transfer already used this note" }
-            if (old == null) current.array("incoming").put(Protocol.obj("id" to p.note.getString("id"), "hash" to p.hash, "packet" to packet, "amount" to p.note.getLong("amount"), "status" to "pending", "opId" to Protocol.newId()))
+            val old = current.array("incoming").objects().find { it.getString("id") == p.hash }
+            if (old == null) current.array("incoming").put(Protocol.obj("id" to p.hash, "hash" to p.hash, "packet" to packet, "amount" to p.amount, "status" to "pending", "opId" to Protocol.newId()))
         }
         publish(message = "Received. Pending server settlement; not spendable yet.")
         return store.sign("ack", Protocol.obj("v" to 1, "paymentHash" to p.hash, "walletId" to state.value.walletId, "status" to "received_pending"))

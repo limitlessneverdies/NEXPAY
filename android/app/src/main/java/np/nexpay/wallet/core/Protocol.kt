@@ -1,4 +1,4 @@
-package np.paila.wallet.core
+package np.nexpay.wallet.core
 
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,7 +10,7 @@ import java.util.Base64
 import java.util.UUID
 
 object Protocol {
-    const val OFFLINE_LIMIT = 50_000L
+    const val OFFLINE_LIMIT = 500_000L
     const val NOTE_LIFE = 86_400_000L
     const val REDEEM_GRACE = 604_800_000L
     const val SKEW = 300_000L
@@ -35,7 +35,7 @@ object Protocol {
     fun peek(raw: String): JSONObject {
         require(raw.length <= 23000) { "Payment message too large" }
         val pieces = raw.split('.')
-        require(pieces.size == 3 && pieces[0] == "p1") { "Not a Paila payment code" }
+        require(pieces.size == 3 && pieces[0] == "p1") { "Not a NexPay payment code" }
         return JSONObject(String(unb64(pieces[1]), Charsets.UTF_8)).also { require(it.getInt("v") == 1) { "Unsupported payment version" } }
     }
     fun verify(kind: String, raw: String, pub: String): JSONObject {
@@ -57,7 +57,7 @@ object Protocol {
         require(r.getString("requestId").matches(Regex("[A-Za-z0-9_-]{16,80}"))) { "Invalid receive request" }
         return r
     }
-    data class Payment(val note: JSONObject, val data: JSONObject, val hash: String)
+    data class Payment(val note: JSONObject, val data: JSONObject, val hash: String, val amount: Long)
     fun readPayment(raw: String, issuer: String, recipient: String, now: Long = System.currentTimeMillis()): Payment {
         val data = peek(raw)
         val note = verify("voucher", data.getString("voucher"), issuer)
@@ -66,10 +66,12 @@ object Protocol {
         require(note.getString("owner") == walletId(note.getString("ownerKey"))) { "Note owner mismatch" }
         verify("payment", raw, note.getString("ownerKey"))
         require(data.getString("to") == recipient && recipient != note.getString("owner")) { "Payment is addressed to a different wallet" }
+        val paid = if (data.has("amountMinor")) data.getLong("amountMinor") else note.getLong("amount")
+        require(paid in 1..note.getLong("amount")) { "Payment exceeds the reserved note value" }
         val created = note.getLong("createdAt"); val expires = note.getLong("expiresAt"); val time = data.getLong("createdAt")
         require(expires - created == NOTE_LIFE && now < expires && time in (created - SKEW)..expires && time <= now + SKEW) { "Offline note expired or invalid device clock" }
         require(note.getString("id").matches(Regex("[A-Za-z0-9_-]{16,80}")) && data.getString("requestId").matches(Regex("[A-Za-z0-9_-]{16,80}"))) { "Invalid payment identifier" }
-        return Payment(note, data, sha(canonical(data).toByteArray(Charsets.UTF_8)))
+        return Payment(note, data, sha(canonical(data).toByteArray(Charsets.UTF_8)), paid)
     }
     fun canonical(value: Any?): String = when (value) {
         null, JSONObject.NULL -> "null"

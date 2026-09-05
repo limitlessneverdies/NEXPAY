@@ -1,4 +1,4 @@
-package np.paila.wallet.core
+package np.nexpay.wallet.core
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec

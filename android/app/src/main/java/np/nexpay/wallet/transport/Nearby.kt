@@ -1,4 +1,4 @@
-package np.paila.wallet.transport
+package np.nexpay.wallet.transport
 
 import android.annotation.SuppressLint
 import android.bluetooth.*
@@ -7,7 +7,7 @@ import android.net.wifi.p2p.*
 import android.os.Build
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
-import np.paila.wallet.core.Protocol
+import np.nexpay.wallet.core.Protocol
 import java.io.*
 import java.net.*
 import java.util.UUID
@@ -80,7 +80,7 @@ class Nearby(
     } }
     fun startBluetoothReceive(code: String) {
         stopTransfer(); mode = "bt-receive"; require(adapter != null && adapter.isEnabled) { "Enable Bluetooth first" }; receiveCode = code
-        bluetoothServer = adapter.listenUsingRfcommWithServiceRecord("Paila Test", UUID_SERVICE)
+        bluetoothServer = adapter.listenUsingRfcommWithServiceRecord("NexPay", UUID_SERVICE)
         onStatus("Listening. Keep this screen open and make this phone discoverable.")
         io { val socket = bluetoothServer!!.accept(90_000); val s = WireSession(socket.inputStream, socket.outputStream) { socket.close() }; receiver(s, code); bluetoothServer?.close(); bluetoothServer = null }
     }

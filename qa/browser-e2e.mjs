@@ -24,10 +24,10 @@ async function confirm(p){await p.getByRole('dialog').getByRole('button',{name:'
 try{
  const a=await profile(),b=await profile();
  await snap(a.p,'01-setup');
- await check('two separate browser wallets receive exactly Rs 1,000 each',async()=>{
+  await check('two separate browser wallets receive Rs 5,000 each with half auto-reserved',async()=>{
    await a.p.getByLabel('Your name',{exact:true}).fill('Asha');await a.p.getByRole('button',{name:'Create my test wallet'}).click();await idle(a.p);
    await b.p.getByLabel('Your name',{exact:true}).fill('Bikash');await b.p.getByRole('button',{name:'Create my test wallet'}).click();await idle(b.p);
-   assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,100000);assert.equal((await b.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,100000);
+    assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,250000);assert.equal((await b.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,250000);
  });
  await a.p.getByRole('button',{name:'Dismiss message'}).click();await snap(a.p,'02-wallet');
  await check('receive screen supplies a signed, verifiable, scannable QR',async()=>{
@@ -37,11 +37,11 @@ try{
  const receiver=await b.p.locator('#receive-code').inputValue();await snap(b.p,'03-receive');
  await check('online payment reviews recipient then updates both real test balances',async()=>{
    await nav(a.p,'Send');await a.p.getByLabel("Receiver's code",{exact:true}).fill(receiver);await a.p.getByLabel('Amount in test rupees').fill('25.75');await a.p.getByLabel('Note (optional)').fill('Tea');await a.p.getByRole('button',{name:'Review payment'}).click();await a.p.getByRole('dialog').waitFor();assert.match(await a.p.getByRole('dialog').innerText(),/Bikash/);await snap(a.p,'13-review');await confirm(a.p);
-   assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,97425);
-   await nav(b.p,'Settings');await b.p.getByRole('button',{name:'Sync now',exact:true}).click();await idle(b.p);assert.equal((await b.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,102575);
+    assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,247425);
+    await nav(b.p,'Settings');await b.p.getByRole('button',{name:'Sync now',exact:true}).click();await idle(b.p);assert.equal((await b.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,252575);
  });
  await check('reserve note removes exactly Rs 100 from available balance',async()=>{
-   await nav(a.p,'Wallet');await a.p.getByRole('button',{name:'Manage offline notes'}).click();await a.p.getByLabel('Note value in rupees').fill('100');await a.p.getByRole('button',{name:'Reserve this amount'}).click();await confirm(a.p);assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,87425);assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.vouchers[0].amount,10000);
+   await nav(a.p,'Wallet');await a.p.getByRole('button',{name:'Manage offline notes'}).click();await a.p.getByLabel('Note value in rupees').fill('100');await a.p.getByRole('button',{name:'Reserve this amount'}).click();await confirm(a.p);assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,237425);assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.vouchers[0].amount,10000);
  });
  await a.p.getByRole('button',{name:'Dismiss message'}).click();await snap(a.p,'04-offline');
  await nav(a.p,'Wallet');await nav(a.p,'Send');await a.p.getByRole('button',{name:'Offline QR',exact:true}).click();await snap(a.p,'05-send');
@@ -50,22 +50,22 @@ try{
    await a.p.getByLabel("Receiver's code",{exact:true}).fill(receiver);await a.p.getByLabel('Amount in test rupees').fill('100');await a.p.getByRole('button',{name:'Review payment'}).click();await confirm(a.p);
    const packet=await a.p.locator('#payment-code').inputValue();assert(packet.startsWith('p1.'));
    await nav(b.p,'Receive');await b.p.getByLabel('Payment code',{exact:true}).fill(packet);await b.p.getByRole('button',{name:'Save received payment'}).click();await idle(b.p);
-   const state=await b.p.evaluate(()=>PailaTest.snapshot());assert.equal(state.incoming[0].status,'pending');assert.equal(state.wallet.balanceMinor,102575);
+    const state=await b.p.evaluate(()=>PailaTest.snapshot());assert.equal(state.incoming[0].status,'pending');assert.equal(state.wallet.balanceMinor,252575);
  });
  if(await a.p.getByRole('button',{name:'Dismiss message'}).count())await a.p.getByRole('button',{name:'Dismiss message'}).click();await snap(a.p,'06-payment');
  await nav(b.p,'Activity');await snap(b.p,'07-pending');
  await check('reconnect settles receipt once, retries do not mint money',async()=>{
    await b.c.setOffline(false);await idle(b.p);await nav(b.p,'Settings');await b.p.getByRole('button',{name:'Sync now',exact:true}).click();await idle(b.p);
-   let state=await b.p.evaluate(()=>PailaTest.snapshot());assert.equal(state.incoming[0].status,'settled');assert.equal(state.wallet.balanceMinor,112575);
-   await b.p.getByRole('button',{name:'Sync now',exact:true}).click();await idle(b.p);assert.equal((await b.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,112575);
+    let state=await b.p.evaluate(()=>PailaTest.snapshot());assert.equal(state.incoming[0].status,'settled');assert.equal(state.wallet.balanceMinor,262575);
+    await b.p.getByRole('button',{name:'Sync now',exact:true}).click();await idle(b.p);assert.equal((await b.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,262575);
  });
  await a.c.setOffline(false);await idle(a.p);await nav(a.p,'Settings');await a.p.getByRole('button',{name:'Sync now',exact:true}).click();await idle(a.p);assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).outgoing[0].status,'settled');
- await check('top-up adds actual server test credit and daily limit disables repeats',async()=>{
-   await a.p.getByRole('button',{name:'Add Rs 1,000 test credit',exact:true}).click();await confirm(a.p);assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,187425);assert(await a.p.getByRole('button',{name:'Add Rs 1,000 test credit',exact:true}).isDisabled());
+  await check('top-up adds actual server credit and daily limit disables repeats',async()=>{
+    await a.p.getByRole('button',{name:'Add Rs 5,000',exact:true}).click();await confirm(a.p);assert.equal((await a.p.evaluate(()=>PailaTest.snapshot())).wallet.balanceMinor,737425);assert(await a.p.getByRole('button',{name:'Add Rs 5,000',exact:true}).isDisabled());
  });
  await a.p.getByRole('button',{name:'Dismiss message'}).click();await snap(a.p,'08-settings');
  await check('reload preserves device keys, wallet and spent-note lock',async()=>{
-   const before=await a.p.evaluate(()=>PailaTest.snapshot());await a.p.reload();await idle(a.p);await a.p.getByRole('button',{name:'Manage offline notes'}).waitFor();await idle(a.p);const after=await a.p.evaluate(()=>PailaTest.snapshot());assert.equal(after.wallet.walletId,before.wallet.walletId);assert.equal(after.wallet.balanceMinor,187425);assert.equal(after.outgoing.length,1);
+   const before=await a.p.evaluate(()=>PailaTest.snapshot());await a.p.reload();await idle(a.p);await a.p.getByRole('button',{name:'Manage offline notes'}).waitFor();await idle(a.p);const after=await a.p.evaluate(()=>PailaTest.snapshot());assert.equal(after.wallet.walletId,before.wallet.walletId);assert.equal(after.wallet.balanceMinor,737425);assert.equal(after.outgoing.length,1);
  });
  await check('tampered code is rejected in the browser',async()=>{
    const changed=receiver.split('.');const obj=JSON.parse(Buffer.from(changed[1],'base64url'));obj.name='Attacker';changed[1]=Buffer.from(JSON.stringify(obj)).toString('base64url');

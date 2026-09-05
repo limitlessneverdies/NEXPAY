@@ -1,6 +1,6 @@
-package np.paila.wallet
+package np.nexpay.wallet
 
-import np.paila.wallet.core.Protocol
+import np.nexpay.wallet.core.Protocol
 import org.junit.Assert.*
 import org.junit.Test
 import java.security.KeyPairGenerator
@@ -17,5 +17,5 @@ class ProtocolTest {
         assertThrows(IllegalArgumentException::class.java) { Protocol.verify("payment", packet, pub) }
     }
     @Test fun canonicalKeysAreSorted() { assertEquals("{\"a\":2,\"b\":1}", Protocol.canonical(Protocol.obj("b" to 1, "a" to 2))) }
-    @Test fun amountLimitEnforced() { assertThrows(IllegalArgumentException::class.java) { Protocol.paisa("501", Protocol.OFFLINE_LIMIT) } }
+    @Test fun amountLimitEnforced() { assertThrows(IllegalArgumentException::class.java) { Protocol.paisa("5001", Protocol.OFFLINE_LIMIT) } }
 }

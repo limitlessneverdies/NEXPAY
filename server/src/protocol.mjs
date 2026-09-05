@@ -1,5 +1,5 @@
 import { createHash, createPublicKey, sign, verify, randomUUID, generateKeyPairSync } from 'node:crypto';
-export const LIMITS = Object.freeze({ requestBytes:32768, grant:100000, offline:50000, online:10000000, noteLife:86400000, redeemGrace:604800000, clockSkew:300000 });
+export const LIMITS = Object.freeze({ requestBytes:32768, grant:500000, offline:500000, online:10000000, noteLife:86400000, redeemGrace:604800000, clockSkew:300000 });
 export class Fault extends Error { constructor(code, message, status=400) { super(message); this.code=code; this.status=status; } }
 export const fail=(ok,code,message,status=400)=>{if(!ok)throw new Fault(code,message,status);};
 export const hash=s=>createHash('sha256').update(s).digest('hex');
@@ -64,5 +64,6 @@ export function readPayment(raw,issuerKey,recipient,now=Date.now(),settlement=fa
   fail(Number.isSafeInteger(note.createdAt)&&Number.isSafeInteger(note.expiresAt)&&note.expiresAt-note.createdAt===LIMITS.noteLife,'BAD_NOTE','Invalid note lifetime.');
   fail(Number.isSafeInteger(payment.createdAt)&&payment.createdAt>=note.createdAt-LIMITS.clockSkew&&payment.createdAt<=note.expiresAt&&payment.createdAt<=now+LIMITS.clockSkew,'BAD_TIME','Invalid payment time.');
   fail(now<note.expiresAt+(settlement?LIMITS.redeemGrace:0),'EXPIRED_NOTE',settlement?'Redemption window has closed.':'This offline note has expired.');
-  return {note,payment,paymentHash:hash(canonical(payment))};
+  const amountMinor=payment.amountMinor===undefined?note.amount:amount(payment.amountMinor,note.amount);
+  return {note,payment,paymentHash:hash(canonical(payment)),amountMinor};
 }

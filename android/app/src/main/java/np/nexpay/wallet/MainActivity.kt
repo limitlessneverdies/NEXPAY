@@ -1,4 +1,4 @@
-package np.paila.wallet
+package np.nexpay.wallet
 
 import android.Manifest
 import android.animation.ValueAnimator
@@ -55,8 +55,8 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.*
-import np.paila.wallet.core.*
-import np.paila.wallet.transport.*
+import np.nexpay.wallet.core.*
+import np.nexpay.wallet.transport.*
 import org.json.JSONObject
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -74,7 +74,7 @@ private fun date(value: Long) = SimpleDateFormat("d MMM, HH:mm", Locale.ENGLISH)
 class MainActivity : ComponentActivity() {
     private var appearance by mutableStateOf("light")
     private var review by mutableStateOf<ReviewRequest?>(null)
-    private val repo get() = (application as PailaApp).repository
+    private val repo get() = (application as NexPayApp).repository
     private var screen by mutableStateOf("Wallet")
     private var method by mutableStateOf("Online")
     private var receiveRaw by mutableStateOf("")
@@ -127,12 +127,12 @@ class MainActivity : ComponentActivity() {
     private fun authenticate(action: () -> Unit) {
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (!keyguard.isDeviceSecure) { localError = "Set a phone screen lock in Android Security settings before confirming payments."; return }
-        @Suppress("DEPRECATION") val intent = keyguard.createConfirmDeviceCredentialIntent("Confirm Paila test payment", "Use your phone's screen lock. This is test credit, not real money.")
+        @Suppress("DEPRECATION") val intent = keyguard.createConfirmDeviceCredentialIntent("Confirm NexPay payment", "Use your phone's screen lock.")
         if (intent == null) { localError = "Android could not open device confirmation. No payment was created."; return }
         afterCredential = action; credential.launch(intent)
     }
-    private fun scan(purpose: String) { scanPurpose = purpose; permissionThen(arrayOf(Manifest.permission.CAMERA)) { scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt(if (purpose == "payment") "Scan the sender's payment code" else "Scan the receiver's Paila code").setBeepEnabled(false).setOrientationLocked(false)) } }
-    private fun copy(value: String) { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Paila payment code", value)); radioStatus = "Copied. Share only with your intended recipient." }
+    private fun scan(purpose: String) { scanPurpose = purpose; permissionThen(arrayOf(Manifest.permission.CAMERA)) { scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt(if (purpose == "payment") "Scan the sender's payment code" else "Scan the receiver's NexPay code").setBeepEnabled(false).setOrientationLocked(false)) } }
+    private fun copy(value: String) { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("NexPay payment code", value)); radioStatus = "Copied. Share only with your intended recipient." }
     private fun stopRadios() { nearby.stopTransfer(); nfc.stop(); NfcBus.clear(); peers = emptyList(); radioStatus = "" }
     private fun go(destination: String) { stopRadios(); screen = destination; paymentPacket = ""; receiveRaw = ""; if (destination == "Receive") ownReceive = repo.receiveCode() }
     private fun startReceiver(transport: String) = runSafe {
@@ -163,7 +163,7 @@ class MainActivity : ComponentActivity() {
         val value = Protocol.paisa(amountText, if (selectedMethod == "Online") 10_000_000 else Protocol.OFFLINE_LIMIT)
         require(r.getString("walletId") != repo.state.value.walletId) { "Choose someone else's wallet" }
         review = ReviewRequest("Check your payment", value, r.getString("name"),
-            "${r.getString("walletId")}\n\n$selectedMethod · Test credit only\n" +
+            "${r.getString("walletId")}\n\n$selectedMethod · NexPay balance\n" +
             if (selectedMethod == "Online") "The server must confirm the transfer." else "The recipient cannot spend this until server settlement.") {
             authenticate {
                 if (selectedMethod == "Online") work { repo.enqueue("pay", Protocol.obj("to" to r.getString("walletId"), "amountMinor" to value, "note" to note)); if (repo.state.value.connected && repo.state.value.queued == 0 && repo.state.value.failed.isEmpty()) go("Wallet") }
@@ -179,7 +179,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private fun requestTopup() {
-        review = ReviewRequest("Add test credit?", 100_000, repo.state.value.name, "Once every 24 hours. This is not a bank deposit or real money.") {
+        review = ReviewRequest("Add Rs 5,000?", 500_000, repo.state.value.name, "Once every 24 hours. Demo balance, not a bank deposit.") {
             authenticate { work { repo.enqueue("topup", JSONObject()) } }
         }
     }
@@ -246,11 +246,11 @@ class MainActivity : ComponentActivity() {
     @Composable private fun Header(s: WalletState) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(color = Lime, shape = RoundedCornerShape(12.dp)) { Text("p.", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 25.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) }
-                Text("paila", fontWeight = FontWeight.SemiBold, fontSize = 25.sp, letterSpacing = (-1).sp)
+                Surface(color = Lime, shape = RoundedCornerShape(12.dp)) { Text("n.", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 25.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) }
+                Text("nexpay", fontWeight = FontWeight.SemiBold, fontSize = 25.sp, letterSpacing = (-1).sp)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(99.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) { Text("Test wallet", fontSize = 14.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) }
+                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(99.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) { Text("Secure offline", fontSize = 14.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) }
                 if (s.ready) IconButton(onClick = { method = "QR"; go("Receive") }) { Icon(Icons.Outlined.QrCode, "Show my receive code") }
             }
         }
@@ -258,6 +258,7 @@ class MainActivity : ComponentActivity() {
     }
     @Composable private fun Setup(s: WalletState) {
         var name by rememberSaveable { mutableStateOf("") }; var server by rememberSaveable { mutableStateOf(s.server.ifBlank { BuildConfig.DEFAULT_SERVER }) }
+        val baked = BuildConfig.DEFAULT_SERVER.isNotBlank()
         Box(Modifier.fillMaxWidth().height(212.dp).clip(RoundedCornerShape(28.dp)).background(Warm)) {
             Image(painterResource(R.drawable.wallet_art), null, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
             Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.SpaceBetween) {
@@ -266,13 +267,15 @@ class MainActivity : ComponentActivity() {
             }
         }
         CardBlock {
-            Text("Start with test money.", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-            Text("Rs 1,000", fontSize = 30.sp, fontWeight = FontWeight.Medium, letterSpacing = (-1).sp)
+            Text("Start with Rs 5,000.", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            Text("Rs 5,000", fontSize = 30.sp, fontWeight = FontWeight.Medium, letterSpacing = (-1).sp)
             OutlinedTextField(name, { name = it }, label = { Text("Your name") }, singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(server, { server = it }, label = { Text("Public HTTPS server") }, placeholder = { Text("https://pay.your-domain.com") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth())
-            Text("Use the same server on both phones. Localhost isn't public.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Primary("Create my test wallet", !s.busy && name.isNotBlank() && server.isNotBlank()) { work { repo.create(server, name) } }
-            Text("No bank account. No cash-out. These aren't real rupees.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!baked) {
+                OutlinedTextField(server, { server = it }, label = { Text("Public HTTPS server") }, placeholder = { Text("https://pay.your-domain.com") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth())
+                Text("Use the same server on both phones. Localhost isn't public.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Primary("Create my NexPay wallet", !s.busy && name.isNotBlank() && server.isNotBlank()) { work { repo.create(server, name) } }
+            Text("No bank account. No cash-out. Demo balance only.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text("Your key stays on this device. Uninstalling loses access; recovery is not implemented.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -284,14 +287,14 @@ class MainActivity : ComponentActivity() {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Warm)) {
             Image(painterResource(R.drawable.wallet_art), null, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
             Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(if (s.connected) "Available balance" else "Saved balance", fontSize = 14.sp, color = Ink); Text("Test NPR", fontSize = 14.sp, color = Ink) }
-                AnimatedContent(targetState = s.balance, transitionSpec = { fadeIn(tween(if (ValueAnimator.areAnimatorsEnabled()) 220 else 0)).togetherWith(fadeOut(tween(0))) }, label = "Confirmed balance") { balance ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Total balance", fontSize = 14.sp, color = Ink); Text("NPR", fontSize = 14.sp, color = Ink) }
+                AnimatedContent(targetState = s.total, transitionSpec = { fadeIn(tween(if (ValueAnimator.areAnimatorsEnabled()) 220 else 0)).togetherWith(fadeOut(tween(0))) }, label = "Confirmed balance") { balance ->
                     Text(money(balance), color = Ink, fontSize = (if (money(balance).length > 13) 30 else 40).sp, lineHeight = 48.sp, letterSpacing = (-1.5).sp, fontWeight = FontWeight.Medium)
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Not real money", fontSize = 14.sp, color = Ink)
-                    FilledTonalButton(onClick = { requestTopup() }, enabled = !s.busy && s.queued == 0 && System.currentTimeMillis() >= s.nextTopup, colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color.White.copy(alpha = .9f), contentColor = Ink), contentPadding = PaddingValues(horizontal = 12.dp), modifier = Modifier.heightIn(min = 44.dp)) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Add test", fontSize = 14.sp) }
+                    FilledTonalButton(onClick = { requestTopup() }, enabled = !s.busy && s.queued == 0 && System.currentTimeMillis() >= s.nextTopup, colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color.White.copy(alpha = .9f), contentColor = Ink), contentPadding = PaddingValues(horizontal = 12.dp), modifier = Modifier.heightIn(min = 44.dp)) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Top up", fontSize = 14.sp) }
                 }
             }
         }
@@ -343,9 +346,9 @@ class MainActivity : ComponentActivity() {
         recipient?.let {
             CardBlock { Text("TO", fontSize = 14.sp, letterSpacing = 1.sp); Text(it.getString("name"), fontSize = 26.sp, fontWeight = FontWeight.Bold); Text(it.getString("walletId"), fontFamily = FontFamily.Monospace, fontSize = 14.sp); Text("Check this name and ID with the recipient. Names are self-chosen.", fontSize = 14.sp) }
         }
-        OutlinedTextField(amount, { amount = it }, label = { Text("Amount in test rupees") }, prefix = { Text("Rs ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(amount, { amount = it }, label = { Text("Amount in rupees") }, prefix = { Text("Rs ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth())
         if (method == "Online") OutlinedTextField(note, { note = it.take(120) }, label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth())
-        else Text("Use an unused offline note of exactly this amount. Maximum Rs 500 reserved in total. Recipient credit remains pending until settlement.", fontSize = 14.sp)
+        else Text("Send any amount up to your offline balance. The remainder stays reserved. Recipient credit remains pending until settlement.", fontSize = 14.sp)
         if (paymentPacket.isBlank()) Primary("Review payment", recipient != null && amount.isNotBlank() && !s.busy && s.queued == 0) { pay(amount, note) }
         else CardBlock {
             Text("Payment is saved", fontWeight = FontWeight.Bold)
@@ -373,10 +376,10 @@ class MainActivity : ComponentActivity() {
         Text("Your offline pocket.", fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.3).sp)
         CardBlock {
             Text("Prepare an offline note", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("This moves test credit out of your available balance. Notes are single-use, exact-amount, and expire after 24 hours.")
+            Text("Rs 2,500 is reserved for you automatically. Top up the pool here; spend any amount from it offline.")
             OutlinedTextField(amount, { amount = it }, label = { Text("Note value in rupees") }, prefix = { Text("Rs ") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth())
-            Primary("Reserve this amount", !s.busy && s.queued == 0) { runSafe { val n = Protocol.paisa(amount, Protocol.OFFLINE_LIMIT); review = ReviewRequest("Prepare this note?", n, "Offline pocket", "Set aside from available balance. Single use, one exact amount, valid for 24 hours.") { authenticate { work { repo.enqueue("reserve", Protocol.obj("amountMinor" to n)) } } } } }
-            Text("Maximum Rs 500 reserved. You need internet to prepare notes. An unused expired note can be refunded after a further 7-day redemption window.", fontSize = 14.sp)
+            Primary("Reserve this amount", !s.busy && s.queued == 0) { runSafe { val n = Protocol.paisa(amount, Protocol.OFFLINE_LIMIT); review = ReviewRequest("Prepare this note?", n, "Offline pocket", "Set aside from available balance. Spend any amount from it offline, valid for 24 hours.") { authenticate { work { repo.enqueue("reserve", Protocol.obj("amountMinor" to n)) } } } } }
+            Text("Maximum Rs 5,000 reserved in total. You need internet to prepare notes. An unused expired note can be refunded after a further 7-day redemption window.", fontSize = 14.sp)
         }
         Text("Your notes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         if (s.notes.isEmpty()) Text("No offline notes yet. Reserve your first amount above.")
@@ -408,10 +411,12 @@ class MainActivity : ComponentActivity() {
         }
         CardBlock {
             Text("Connection", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text(if (s.connected) "Connected to the test ledger" else "Not connected — saved data is shown")
-            OutlinedTextField(server, { server = it }, label = { Text("Server origin") }, modifier = Modifier.fillMaxWidth())
-            Text("Changing the address is allowed only if the issuer signing key stays the same.", fontSize = 14.sp)
-            Primary("Verify and save address", !s.busy) { work { repo.changeEndpoint(server); repo.sync() } }
+            Text(if (s.connected) "Connected to the NexPay network" else "Not connected — saved data is shown")
+            if (BuildConfig.DEFAULT_SERVER.isBlank()) {
+                OutlinedTextField(server, { server = it }, label = { Text("Server origin") }, modifier = Modifier.fillMaxWidth())
+                Text("Changing the address is allowed only if the issuer signing key stays the same.", fontSize = 14.sp)
+                Primary("Verify and save address", !s.busy) { work { repo.changeEndpoint(server); repo.sync() } }
+            }
             Text("Issuer fingerprint", fontWeight = FontWeight.Bold)
             Text(s.issuer.chunked(16).joinToString("\n"), fontFamily = FontFamily.Monospace, fontSize = 14.sp)
             OutlinedButton(onClick = { work { repo.sync() } }, enabled = !s.busy) { Text("Sync now") }
@@ -427,17 +432,17 @@ class MainActivity : ComponentActivity() {
         }
         if (s.failed.isNotEmpty()) CardBlock { Text("Rejected requests", fontWeight = FontWeight.Bold); s.failed.forEach { Text(it, color = MaterialTheme.colorScheme.error) }; TextButton(onClick = { repo.clearFailed() }) { Text("Acknowledge these errors") } }
         CardBlock {
-            Text("Test credit", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text("Rs 1,000 is granted on first registration. You can add another Rs 1,000 once every 24 hours. No deposits or withdrawals are connected.")
-            Primary("Add Rs 1,000 test credit", !s.busy && s.queued == 0 && System.currentTimeMillis() >= s.nextTopup) { requestTopup() }
+            Text("Balance", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("Rs 5,000 is granted on first registration. You can add another Rs 5,000 once every 24 hours. Demo balance — no banks connected.")
+            Primary("Add Rs 5,000", !s.busy && s.queued == 0 && System.currentTimeMillis() >= s.nextTopup) { requestTopup() }
             if (System.currentTimeMillis() < s.nextTopup) Text("Next top-up: ${date(s.nextTopup)}", fontSize = 14.sp)
         }
-        Text("Paila 0.2.0 · Test environment\nDevice-held keys. Encrypted local storage. Signed payments. No claim of tamper-proof devices, real-money authorization, or final offline settlement. Do not disable Play Protect to install this app.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("NexPay 0.3 · Demo network\nDevice-held keys. Encrypted local storage. Signed payments. Demo balance only — not connected to banks or real money. Do not disable Play Protect to install this app.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     @Composable private fun EntryRow(e: Entry) {
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(8.dp)) { Icon(if (e.amount >= 0) Icons.Outlined.SouthWest else Icons.Outlined.NorthEast, null, Modifier.padding(12.dp).size(22.dp)) }
-            Column(Modifier.weight(1f)) { Text(when(e.kind) { "welcome" -> "Welcome credit"; "test_topup" -> "Test credit added"; "offline_reserve" -> "Offline note reserved"; "offline_payment" -> "Offline payment settled"; "offline_refund" -> "Expired note refund"; else -> e.name }, fontWeight = FontWeight.Medium); Text(date(e.created), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Column(Modifier.weight(1f)) { Text(when(e.kind) { "welcome" -> "Welcome credit"; "test_topup" -> "Credit added"; "offline_reserve" -> "Offline note reserved"; "offline_payment" -> "Offline payment settled"; "offline_refund" -> "Expired note refund"; else -> e.name }, fontWeight = FontWeight.Medium); Text(date(e.created), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Text((if (e.amount > 0) "+" else "−") + money(kotlin.math.abs(e.amount)), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         }
     }
@@ -472,5 +477,5 @@ class MainActivity : ComponentActivity() {
         val matrix = QRCodeWriter().encode(raw, BarcodeFormat.QR_CODE, 768, 768, mapOf(EncodeHintType.MARGIN to 4, EncodeHintType.CHARACTER_SET to "UTF-8"))
         Bitmap.createBitmap(768, 768, Bitmap.Config.ARGB_8888).apply { val pixels = IntArray(768 * 768) { i -> if (matrix.get(i % 768, i / 768)) android.graphics.Color.BLACK else android.graphics.Color.WHITE }; setPixels(pixels, 0, 768, 0, 0, 768, 768) }
     } }
-    result.getOrNull()?.let { Image(it.asImageBitmap(), "Paila signed payment QR code", Modifier.fillMaxWidth().aspectRatio(1f).background(Color.White)) } ?: Text("QR code could not be displayed. Use Copy code instead.")
+    result.getOrNull()?.let { Image(it.asImageBitmap(), "NexPay signed payment QR code", Modifier.fillMaxWidth().aspectRatio(1f).background(Color.White)) } ?: Text("QR code could not be displayed. Use Copy code instead.")
 }

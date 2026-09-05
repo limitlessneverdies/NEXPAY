@@ -1,4 +1,4 @@
-package np.paila.wallet.transport
+package np.nexpay.wallet.transport
 
 import android.app.Activity
 import android.nfc.NfcAdapter
@@ -6,16 +6,16 @@ import android.nfc.cardemulation.HostApduService
 import android.nfc.tech.IsoDep
 import android.os.Bundle
 import kotlinx.coroutines.*
-import np.paila.wallet.core.Protocol
+import np.nexpay.wallet.core.Protocol
 import java.io.ByteArrayOutputStream
 
-/** Paila-specific two-tap NFC exchange; NOT EMV, not bank-card emulation. */
+/** NexPay two-tap NFC exchange; NOT EMV, not bank-card emulation. */
 object NfcBus {
     @Volatile var receiveCode: String? = null
     @Volatile var accept: ((String) -> String)? = null
     fun clear() { receiveCode = null; accept = null }
 }
-class PailaHceService : HostApduService() {
+class NexPayHceService : HostApduService() {
     private var selected = false
     private var expected = 0
     private var incoming = ByteArrayOutputStream()
@@ -66,18 +66,18 @@ class NfcReader(private val activity: Activity, private val scope: CoroutineScop
         adapter.enableReaderMode(activity, { tag ->
             if (!reading) { reading = true; scope.launch(Dispatchers.IO) {
                 try {
-                    val iso = IsoDep.get(tag) ?: error("Hold the phones' NFC areas together; this is not a Paila receiver")
+                    val iso = IsoDep.get(tag) ?: error("Hold the phones' NFC areas together; this is not a NexPay receiver")
                     iso.use {
                         it.connect(); it.timeout = 8000
                         fun command(ins: Int, offset: Int = 0, bytes: ByteArray = byteArrayOf()): ByteArray = byteArrayOf(0x80.toByte(), ins.toByte(), (offset shr 8).toByte(), offset.toByte(), bytes.size.toByte()) + bytes
-                        fun exchange(c: ByteArray): ByteArray { val r = it.transceive(c); require(r.size >= 2 && r.takeLast(2).toByteArray().contentEquals(PailaHceService.OK)) { "NFC exchange stopped. Keep the receiver open and retry the same payment." }; return r.copyOfRange(0, r.size - 2) }
+                        fun exchange(c: ByteArray): ByteArray { val r = it.transceive(c); require(r.size >= 2 && r.takeLast(2).toByteArray().contentEquals(NexPayHceService.OK)) { "NFC exchange stopped. Keep the receiver open and retry the same payment." }; return r.copyOfRange(0, r.size - 2) }
                         fun read(lenIns: Int, dataIns: Int): String { val l = exchange(command(lenIns)); require(l.size == 2); val size = ((l[0].toInt() and 255) shl 8) or (l[1].toInt() and 255); require(size in 1..23000); val out = ByteArrayOutputStream(); while (out.size() < size) { val part = exchange(command(dataIns, out.size())); require(part.isNotEmpty() && out.size() + part.size <= size); out.write(part) }; return String(out.toByteArray(), Charsets.UTF_8) }
-                        exchange(byteArrayOf(0, 0xA4.toByte(), 4, 0, 7) + PailaHceService.AID + byteArrayOf(0))
+                        exchange(byteArrayOf(0, 0xA4.toByte(), 4, 0, 7) + NexPayHceService.AID + byteArrayOf(0))
                         val receive = read(1, 2); val recipient = Protocol.readReceive(receive)
                         var ack: String? = null
                         if (packet != null) {
                             require(Protocol.peek(packet).getString("to") == recipient.getString("walletId")) { "Different recipient. Payment was not sent." }
-                            val bytes = packet.toByteArray(Charsets.UTF_8); exchange(command(3, bytes = PailaHceService.bytes(bytes.size)))
+                            val bytes = packet.toByteArray(Charsets.UTF_8); exchange(command(3, bytes = NexPayHceService.bytes(bytes.size)))
                             var offset = 0; while (offset < bytes.size) { val part = bytes.copyOfRange(offset, (offset + 200).coerceAtMost(bytes.size)); exchange(command(4, offset, part)); offset += part.size }
                             exchange(command(5)); ack = read(6, 7)
                         }

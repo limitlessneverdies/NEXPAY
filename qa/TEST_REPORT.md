@@ -1,5 +1,12 @@
 # Paila v0.2 — verification report
 
+## NexPay v0.3 update (same day, local run)
+
+- Server: 33/33 tests pass (Rs 5,000 grants, 50% auto-reserve, any-amount partial redemption with server-issued remainder, overspend rejection, replay-shape fix).
+- Browser: 21/21 end-to-end checks pass against the new money model.
+- Android (`np.nexpay.wallet`, v0.3.0): unit tests, lint (0 errors) and assemble verified; installed on an Android 14 emulator, registered a wallet through the public server URL with Rs 5,000 total / Rs 2,500 offline pool confirmed in-app and in-ledger. Release APK is R8-obfuscated and signed with the stable key in `C:\Users\HP\PailaKeys`.
+- Radios still need two physical devices; no real-money use without a licensed partner and independent review.
+
 ## Result and scope
 
 - **31/31 server tests passed.** `backend-tests.log`.
@@ -16,7 +23,7 @@ One initial grant per wallet key; signed requests; exact amounts; idempotency an
 
 ## Actual browser payment flow
 
-Two separate test wallets each receive 100000 paisa from the server. A reviewed Rs 25.75 transfer yields 97425 and 102575. Reserving Rs 100 leaves the sender at 87425. With both contexts disconnected, the receiver saves the offline payment as pending without increasing spendable balance. Reconnection settles it to 112575 once; replay adds nothing. The sender's daily top-up yields 187425; another is disabled. Reload preserves identity, balance and the note lock. A tampered code is rejected.
+Two separate test wallets each receive 500000 paisa from the server, half auto-reserved offline. A reviewed Rs 25.75 transfer yields 247425 and 252575. Reserving Rs 100 leaves the sender at 237425. With both contexts disconnected, the receiver saves the offline payment as pending without increasing spendable balance. Reconnection settles it to 262575 once; replay adds nothing. The sender's daily top-up yields 737425; another is disabled. Reload preserves identity, balance and the note lock. A tampered code is rejected.
 
 Additional checks cover persistent appearance; honest nearby guidance; Cancel/Escape without funds or queue mutations; draft preservation across connectivity/viewport changes; actual signed-code copying and disclosure; keyboard focus styling; normal vs reduced motion; presets without premature reservation; responsive routes and no uncaught exceptions.
 

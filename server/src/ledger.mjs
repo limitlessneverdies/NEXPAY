@@ -13,7 +13,7 @@ export class Ledger {
     this.db=new DatabaseSync(join(dir,'ledger.sqlite'));
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY, pub TEXT UNIQUE, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0 CHECK(typeof(balance)='integer' AND (id='TEST_ISSUER' OR balance>=0)), created INTEGER NOT NULL, topped INTEGER);
-      CREATE TABLE IF NOT EXISTS vouchers(id TEXT PRIMARY KEY, owner TEXT NOT NULL REFERENCES accounts(id), amount INTEGER NOT NULL CHECK(amount>0), certificate TEXT NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('reserved','redeemed','reclaimed')), recipient TEXT REFERENCES accounts(id), transfer_hash TEXT, tx_id TEXT);
+      CREATE TABLE IF NOT EXISTS vouchers(id TEXT PRIMARY KEY, owner TEXT NOT NULL REFERENCES accounts(id), amount INTEGER NOT NULL CHECK(amount>0), certificate TEXT NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('reserved','redeemed','reclaimed')), recipient TEXT REFERENCES accounts(id), transfer_hash TEXT, tx_id TEXT, settled_amount INTEGER);
       CREATE TABLE IF NOT EXISTS journal(seq INTEGER PRIMARY KEY AUTOINCREMENT, tx_id TEXT NOT NULL, account TEXT NOT NULL REFERENCES accounts(id), delta INTEGER NOT NULL CHECK(typeof(delta)='integer' AND delta!=0), kind TEXT NOT NULL, peer TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS journal_account ON journal(account,seq DESC);
       CREATE INDEX IF NOT EXISTS voucher_owner ON vouchers(owner,status);
@@ -22,7 +22,8 @@ export class Ledger {
       CREATE TRIGGER IF NOT EXISTS journal_immutable_delete BEFORE DELETE ON journal BEGIN SELECT RAISE(ABORT,'Journal is immutable'); END;
       PRAGMA user_version=1;`);
     const ins=this.db.prepare('INSERT OR IGNORE INTO accounts(id,name,balance,created) VALUES(?,?,0,?)');
-    ins.run('TEST_ISSUER','Test credit issuer',this.clock());ins.run('OFFLINE_ESCROW','Reserved offline credit',this.clock());
+    try { this.db.exec('ALTER TABLE vouchers ADD COLUMN settled_amount INTEGER'); } catch {}
+    ins.run('TEST_ISSUER','NexPay issuer',this.clock());ins.run('OFFLINE_ESCROW','Reserved offline credit',this.clock());
     chmodSync(join(dir,'ledger.sqlite'),0o600);
   }
   config(){return {protocol:1,mode:'test',currency:'tNPR',initialCreditMinor:LIMITS.grant,offlineLimitMinor:LIMITS.offline,noteLifetimeMs:LIMITS.noteLife,redemptionGraceMs:LIMITS.redeemGrace,issuerPublicKey:this.publicKey,issuerFingerprint:this.issuer};}
@@ -36,14 +37,23 @@ export class Ledger {
     const j=this.db.prepare('INSERT INTO journal(tx_id,account,delta,kind,peer,note,created) VALUES(?,?,?,?,?,?,?)');
     j.run(tx,from,-value,kind,to,note,now);j.run(tx,to,value,kind,from,note,now);return tx;
   }
+  reserveNote(owner, n) {
+    const now = this.clock(), id = randomUUID();
+    const note = { v: 1, issuer: this.issuer, id, owner: owner.id, ownerKey: owner.pub, amount: n, createdAt: now, expiresAt: now + LIMITS.noteLife };
+    const cert = pack('voucher', note, this.key);
+    this.move(owner.id, 'OFFLINE_ESCROW', n, 'offline_reserve', 'Reserved offline note');
+    this.db.prepare("INSERT INTO vouchers(id,owner,amount,certificate,created,expires,status) VALUES(?,?,?,?,?,?,'reserved')").run(id, owner.id, n, cert, now, note.expiresAt);
+    return { status: 'reserved', id, certificate: cert, amountMinor: n, expiresAt: note.expiresAt };
+  }
   register(raw){
     const p=unpack(raw).data; publicKey(p.publicKey);const r=open('register',raw,p.publicKey);fresh(r.ts,this.clock());operationId(r.opId);const name=text(r.name,'Name',48);const id=walletId(r.publicKey);
     return this.atomic(()=>{if(!this.db.prepare('SELECT id FROM accounts WHERE id=?').get(id)){
       this.db.prepare('INSERT INTO accounts(id,pub,name,balance,created) VALUES(?,?,?,0,?)').run(id,r.publicKey,name,this.clock());
-      this.move('TEST_ISSUER',id,LIMITS.grant,'welcome','Welcome test credit');
+      this.move('TEST_ISSUER',id,LIMITS.grant,'welcome','Welcome credit');
+      this.reserveNote({id, pub: r.publicKey}, Math.floor(LIMITS.grant/2));
     }return this.state(id);});
   }
-  state(id){const a=this.account(id);return {walletId:a.id,name:a.name,balanceMinor:a.balance,mode:'test',currency:'tNPR',serverTime:this.clock(),nextTopupAt:a.topped===null?0:a.topped+86400000,
+  state(id){const a=this.account(id);const reserved=this.db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM vouchers WHERE owner=? AND status='reserved'").get(id).total;return {walletId:a.id,name:a.name,balanceMinor:a.balance,reservedMinor:reserved,totalMinor:a.balance+reserved,mode:'test',currency:'tNPR',serverTime:this.clock(),nextTopupAt:a.topped===null?0:a.topped+86400000,
     vouchers:this.db.prepare('SELECT id,amount,certificate,expires,status,recipient,tx_id AS txId FROM vouchers WHERE owner=? ORDER BY created DESC LIMIT 500').all(id),
     activity:this.db.prepare(`SELECT j.tx_id AS id,j.delta AS amountMinor,j.kind,j.peer,COALESCE(a.name,j.peer) AS peerName,j.note,j.created FROM journal j LEFT JOIN accounts a ON a.id=j.peer WHERE j.account=? ORDER BY j.seq DESC LIMIT 100`).all(id)};}
   action(raw){
@@ -64,30 +74,36 @@ export class Ledger {
           result={status:'settled',txId:tx,amountMinor:d.amountMinor,to:d.to};break;
         }
         case 'topup':{
-          const a=this.account(actor.id);fail(a.topped===null||this.clock()-a.topped>=86400000,'TOPUP_LIMIT','Test credit can be added once every 24 hours.',429);
-          const tx=this.move('TEST_ISSUER',actor.id,LIMITS.grant,'test_topup','Additional test credit');
+          const a=this.account(actor.id);fail(a.topped===null||this.clock()-a.topped>=86400000,'TOPUP_LIMIT','Demo credit can be added once every 24 hours.',429);
+          const tx=this.move('TEST_ISSUER',actor.id,LIMITS.grant,'test_topup','Additional credit');
           this.db.prepare('UPDATE accounts SET topped=? WHERE id=?').run(this.clock(),actor.id);result={status:'settled',txId:tx,amountMinor:LIMITS.grant};break;
         }
         case 'reserve':{
           const n=amount(d.amountMinor,LIMITS.offline);const outstanding=this.db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM vouchers WHERE owner=? AND status='reserved'").get(actor.id).total;
-          fail(outstanding+n<=LIMITS.offline,'OFFLINE_LIMIT','Outstanding offline notes are limited to Rs 500 test credit.',409);
-          const now=this.clock(),id=randomUUID();const note={v:1,issuer:this.issuer,id,owner:actor.id,ownerKey:actor.pub,amount:n,createdAt:now,expiresAt:now+LIMITS.noteLife};const cert=pack('voucher',note,this.key);
-          this.move(actor.id,'OFFLINE_ESCROW',n,'offline_reserve','Reserved offline note');
-          this.db.prepare("INSERT INTO vouchers(id,owner,amount,certificate,created,expires,status) VALUES(?,?,?,?,?,?,'reserved')").run(id,actor.id,n,cert,now,note.expiresAt);
-          result={status:'reserved',id,certificate:cert,amountMinor:n,expiresAt:note.expiresAt};break;
+          fail(outstanding+n<=LIMITS.offline,'OFFLINE_LIMIT','Outstanding offline notes are limited to Rs 5,000.',409);
+          result=this.reserveNote(actor,n);break;
         }
         case 'redeem':{
-          const {note,payment,paymentHash}=readPayment(d.payment,this.pub,actor.id,this.clock(),true);
+          const {note,payment,paymentHash,amountMinor}=readPayment(d.payment,this.pub,actor.id,this.clock(),true);
           const row=this.db.prepare('SELECT * FROM vouchers WHERE id=?').get(note.id);
           fail(row&&row.certificate===payment.voucher,'UNKNOWN_NOTE','Note is not present in this issuer ledger.',409);
           if(row.status==='redeemed'){
             fail(row.recipient===actor.id&&row.transfer_hash===paymentHash,'DOUBLE_SPEND','This note was already redeemed for another payment.',409);
-            result={status:'settled',txId:row.tx_id,amountMinor:row.amount,noteId:row.id};break;
+            const prior=this.db.prepare('SELECT response FROM operations WHERE digest=?').get(digest);
+            if(prior)return JSON.parse(prior.response);
+            result={status:'settled',txId:row.tx_id,amountMinor:row.settled_amount??row.amount,noteId:row.id,remainderMinor:0,remainderId:null};break;
           }
           fail(row.status==='reserved','NOTE_UNAVAILABLE','This note is no longer available.',409);
-          const tx=this.move('OFFLINE_ESCROW',actor.id,row.amount,'offline_payment','Offline payment settled');
-          this.db.prepare("UPDATE vouchers SET status='redeemed',recipient=?,transfer_hash=?,tx_id=? WHERE id=? AND status='reserved'").run(actor.id,paymentHash,tx,row.id);
-          result={status:'settled',txId:tx,amountMinor:row.amount,noteId:row.id};break;
+          fail(amountMinor<=row.amount,'OVERSPEND','Payment exceeds the remaining note value.',409);
+          const tx=this.move('OFFLINE_ESCROW',actor.id,amountMinor,'offline_payment','Offline payment settled');
+          const remainder=row.amount-amountMinor;let remainderId=null;
+          if(remainder>0){
+            remainderId=randomUUID();
+            const cert=pack('voucher',{v:1,issuer:this.issuer,id:remainderId,owner:row.owner,ownerKey:note.ownerKey,amount:remainder,createdAt:note.createdAt,expiresAt:note.expiresAt},this.key);
+            this.db.prepare("INSERT INTO vouchers(id,owner,amount,certificate,created,expires,status) VALUES(?,?,?,?,?,?,'reserved')").run(remainderId,row.owner,remainder,cert,note.createdAt,note.expiresAt);
+          }
+          this.db.prepare("UPDATE vouchers SET status='redeemed',recipient=?,transfer_hash=?,tx_id=?,settled_amount=? WHERE id=? AND status='reserved'").run(actor.id,paymentHash,tx,amountMinor,row.id);
+          result={status:'settled',txId:tx,amountMinor,noteId:row.id,remainderMinor:remainder,remainderId};break;
         }
         case 'reclaim':{
           operationId(d.noteId);const row=this.db.prepare('SELECT * FROM vouchers WHERE id=? AND owner=?').get(d.noteId,actor.id);

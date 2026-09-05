@@ -4,7 +4,9 @@
 
 Paila signs single-use payment notes on your device and delivers them by **QR, Bluetooth, Wi-Fi Direct or NFC** — no internet, no middleman in the moment. When you're back online, the ledger settles each note **exactly once**. Online payments settle instantly with a signed review step.
 
-It runs on **test credit** (Rs 1,000 trial grants), not real money. Status: development handoff, **not** a production payment service.
+New wallets start with **Rs 5,000**: Rs 2,500 available, Rs 2,500 auto-reserved for offline. Offline sends can be **any amount** up to the reserved balance — the remainder stays reserved automatically. The app is **NexPay** (`np.nexpay.wallet`, v0.3.0) with the server pre-configured; no address typing.
+
+It runs on **demo balance**, not real money. Status: development handoff, **not** a production payment service.
 
 Made by **Bishowdeep Bhusal** — protocol, Android app, ledger server, design and docs, one original work. Built for Nepal's connected days and the signal-less moments in between.
 

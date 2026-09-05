@@ -1,6 +1,6 @@
-package np.paila.wallet.core
+package np.nexpay.wallet.core
 
-import np.paila.wallet.BuildConfig
+import np.nexpay.wallet.BuildConfig
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URI

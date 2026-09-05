@@ -1,13 +1,13 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose") }
 android {
-    namespace = "np.paila.wallet"
+    namespace = "np.nexpay.wallet"
     compileSdk = 35
     defaultConfig {
-        applicationId = "np.paila.wallet.test"
+        applicationId = "np.nexpay.wallet"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0-test"
+        versionCode = 3
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val apiUrl = providers.gradleProperty("PAILA_API_URL").orElse("").get()
         require(apiUrl.isEmpty() || (apiUrl.startsWith("https://") && !apiUrl.contains('"') && !apiUrl.contains('\\') && !apiUrl.contains('\n')))
