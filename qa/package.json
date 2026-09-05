@@ -1,0 +1,13 @@
+{
+  "name": "paila-qa",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node browser-e2e.mjs",
+    "test:preview": "node preview-e2e.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

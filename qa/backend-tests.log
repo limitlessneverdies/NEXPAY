@@ -1,0 +1,47 @@
+
+> paila-test-wallet-server@0.1.0 test
+> node --test test/*.test.mjs
+
+(node:339) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ health check does not leak keys or wallet data (68.683569ms)
+✔ empty, malformed, oversized and wrong content types are handled (56.861522ms)
+✔ cross-origin browser calls and sensitive filesystem routes are rejected (26.271717ms)
+✔ API registration and parallel replay are exactly once (106.208981ms)
+✔ parallel competing online spends cannot overdraw (26.879007ms)
+✔ no fake APK download: returns 404 before an APK is built (7.566763ms)
+✔ rate limiting returns retry-after without trusting forwarded IP (122.590282ms)
+(node:347) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ new wallet gets exactly 1,000 test rupees once (19.360944ms)
+✔ online transfer updates both balances and double entry ledger (10.207568ms)
+✔ retries do not duplicate money movement (21.031604ms)
+✔ reusing an operation identifier for different data is rejected (10.05749ms)
+✔ insufficient balance rolls back atomically (8.642209ms)
+✔ fractions, negative values, strings, zero and huge values rejected (11.577078ms)
+✔ self payments and unknown wallets rejected (7.42899ms)
+✔ private key mismatch and unsigned fields fail authentication (8.782923ms)
+✔ stale requests rejected; same money operation may retry with fresh timestamp (9.861566ms)
+✔ test topup is server credited, idempotent and daily limited (9.910421ms)
+✔ reserve removes available money and enforces offline cap (9.532936ms)
+✔ signed offline transfer verifies without server and later settles (13.893016ms)
+✔ repeat redemption with different operation IDs is exactly once (26.169769ms)
+✔ malicious offline double spend can be presented but only first redeems (15.472903ms)
+✔ payment cannot be redirected to another recipient (11.061793ms)
+✔ forged issuer and forged sender signatures are rejected (10.733896ms)
+✔ new offline acceptance stops at expiry but existing payment has redemption grace (13.076907ms)
+✔ refund waits for full redemption window and cannot race settlement (12.248268ms)
+✔ reserved money cannot also be spent online (10.071794ms)
+✔ receive requests prove key ownership and expire (7.385201ms)
+✔ journal is immutable through normal SQL update/delete (6.977017ms)
+✔ persistence survives restart including issuer, balances and idempotency (10.241377ms)
+✔ test credit cannot be switched into real-money mode (0.224686ms)
+✔ property exercise: hundreds of mixed transfers conserve every paisa (552.123619ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1432.047996

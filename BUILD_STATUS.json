@@ -1,0 +1,21 @@
+{
+  "name": "Paila",
+  "version": "0.2.0-test",
+  "release": "Opal interface redesign",
+  "moneyMode": "test",
+  "serverTestsPassed": 31,
+  "browserChecksPassed": 21,
+  "previewSceneCount": 10,
+  "previewLayoutChecksPassed": 30,
+  "browserWidthsTested": [
+    320,
+    390,
+    768,
+    1440
+  ],
+  "androidCompiled": false,
+  "apkIncluded": false,
+  "physicalRadioTestsRun": false,
+  "publicServerDeployed": false,
+  "releaseReadiness": "Redesigned development source and verified browser preview; not production approved"
+}

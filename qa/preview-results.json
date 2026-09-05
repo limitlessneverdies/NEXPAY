@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "sceneCount": 10,
+  "layoutChecks": 30,
+  "widths": [
+    320,
+    390,
+    1440
+  ],
+  "reviewCancel": true,
+  "reviewConfirmSendsNothing": true,
+  "nearbyDialog": true,
+  "themeControls": true,
+  "normalAndReducedMotion": true,
+  "uncaughtErrors": [],
+  "externalRequests": []
+}

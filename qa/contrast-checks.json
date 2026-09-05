@@ -1,0 +1,85 @@
+{
+  "scope": "Selected solid-color pairs only; not a full accessibility audit",
+  "checks": [
+    {
+      "name": "Light body",
+      "foreground": "#1b211e",
+      "background": "#ffffff",
+      "ratio": 16.37,
+      "minimum": 4.5,
+      "passed": true
+    },
+    {
+      "name": "Light muted",
+      "foreground": "#606660",
+      "background": "#f2f3ef",
+      "ratio": 5.28,
+      "minimum": 4.5,
+      "passed": true
+    },
+    {
+      "name": "Light input outline",
+      "foreground": "#858d86",
+      "background": "#f2f3ef",
+      "ratio": 3.06,
+      "minimum": 3,
+      "passed": true
+    },
+    {
+      "name": "Light primary",
+      "foreground": "#ffffff",
+      "background": "#1b211e",
+      "ratio": 16.37,
+      "minimum": 4.5,
+      "passed": true
+    },
+    {
+      "name": "Dark body",
+      "foreground": "#edf2eb",
+      "background": "#282e29",
+      "ratio": 12.23,
+      "minimum": 4.5,
+      "passed": true
+    },
+    {
+      "name": "Dark muted",
+      "foreground": "#acb7ad",
+      "background": "#282e29",
+      "ratio": 6.7,
+      "minimum": 4.5,
+      "passed": true
+    },
+    {
+      "name": "Dark primary",
+      "foreground": "#23321d",
+      "background": "#dfff91",
+      "ratio": 12.2,
+      "minimum": 4.5,
+      "passed": true
+    },
+    {
+      "name": "Dark outline",
+      "foreground": "#8a978b",
+      "background": "#333c33",
+      "ratio": 3.75,
+      "minimum": 3,
+      "passed": true
+    },
+    {
+      "name": "Error",
+      "foreground": "#a62e37",
+      "background": "#fff0f1",
+      "ratio": 6.19,
+      "minimum": 4.5,
+      "passed": true
+    },
+    {
+      "name": "Warning",
+      "foreground": "#785019",
+      "background": "#fff6e6",
+      "ratio": 6.61,
+      "minimum": 4.5,
+      "passed": true
+    }
+  ]
+}

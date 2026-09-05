@@ -1,0 +1,92 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "name": "two separate browser wallets receive exactly Rs 1,000 each",
+      "status": "passed"
+    },
+    {
+      "name": "receive screen supplies a signed, verifiable, scannable QR",
+      "status": "passed"
+    },
+    {
+      "name": "online payment reviews recipient then updates both real test balances",
+      "status": "passed"
+    },
+    {
+      "name": "reserve note removes exactly Rs 100 from available balance",
+      "status": "passed"
+    },
+    {
+      "name": "both browsers can exchange a signed offline payment without network",
+      "status": "passed"
+    },
+    {
+      "name": "reconnect settles receipt once, retries do not mint money",
+      "status": "passed"
+    },
+    {
+      "name": "top-up adds actual server test credit and daily limit disables repeats",
+      "status": "passed"
+    },
+    {
+      "name": "reload preserves device keys, wallet and spent-note lock",
+      "status": "passed"
+    },
+    {
+      "name": "tampered code is rejected in the browser",
+      "status": "passed"
+    },
+    {
+      "name": "all browser routes fit narrow, mobile and desktop widths",
+      "status": "passed"
+    },
+    {
+      "name": "no uncaught browser JavaScript exceptions",
+      "status": "passed"
+    },
+    {
+      "name": "appearance buttons change theme and persist after reload",
+      "status": "passed"
+    },
+    {
+      "name": "nearby help is actionable and does not simulate native radios",
+      "status": "passed"
+    },
+    {
+      "name": "cancel and Escape never submit money or create queued operations",
+      "status": "passed"
+    },
+    {
+      "name": "connectivity and viewport changes preserve draft fields",
+      "status": "passed"
+    },
+    {
+      "name": "copy feedback copies the actual signed code and disclosure opens",
+      "status": "passed"
+    },
+    {
+      "name": "keyboard navigation focuses the page heading and exposes focus styling",
+      "status": "passed"
+    },
+    {
+      "name": "normal-motion screen transitions run and reduced motion stops them",
+      "status": "passed"
+    },
+    {
+      "name": "note presets fill the form without reserving money prematurely",
+      "status": "passed"
+    },
+    {
+      "name": "every route has readable type, 44px targets and no horizontal overflow",
+      "status": "passed"
+    },
+    {
+      "name": "final redesigned browser raises no uncaught exceptions",
+      "status": "passed"
+    }
+  ],
+  "jsErrors": [],
+  "nativeRadioTests": "NOT RUN",
+  "androidBuild": "NOT RUN"
+}

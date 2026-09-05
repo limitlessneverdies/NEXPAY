@@ -1,0 +1,24 @@
+(node:629) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS two separate browser wallets receive exactly Rs 1,000 each
+PASS receive screen supplies a signed, verifiable, scannable QR
+PASS online payment reviews recipient then updates both real test balances
+PASS reserve note removes exactly Rs 100 from available balance
+PASS both browsers can exchange a signed offline payment without network
+PASS reconnect settles receipt once, retries do not mint money
+PASS top-up adds actual server test credit and daily limit disables repeats
+PASS reload preserves device keys, wallet and spent-note lock
+PASS tampered code is rejected in the browser
+PASS all browser routes fit narrow, mobile and desktop widths
+PASS no uncaught browser JavaScript exceptions
+PASS appearance buttons change theme and persist after reload
+PASS nearby help is actionable and does not simulate native radios
+PASS cancel and Escape never submit money or create queued operations
+PASS connectivity and viewport changes preserve draft fields
+PASS copy feedback copies the actual signed code and disclosure opens
+PASS keyboard navigation focuses the page heading and exposes focus styling
+PASS normal-motion screen transitions run and reduced motion stops them
+PASS note presets fill the form without reserving money prematurely
+PASS every route has readable type, 44px targets and no horizontal overflow
+PASS final redesigned browser raises no uncaught exceptions
+BROWSER E2E: 21 checks passed; snapshots in /data/paila-v2-qa

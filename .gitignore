@@ -1,0 +1,17 @@
+# Never commit keys, user balances, machine config or private state.
+server/data/
+server/downloads/*.apk
+deploy/downloads/*.apk
+deploy/.env
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.pem
+*.jks
+*.keystore
+android/local.properties
+android/.gradle/
+android/**/build/
+node_modules/
+.env
+.DS_Store

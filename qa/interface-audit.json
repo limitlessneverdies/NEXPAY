@@ -1,0 +1,194 @@
+[
+  {
+    "width": 320,
+    "route": "Wallet",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 320,
+    "route": "Send",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 320,
+    "route": "Receive",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 320,
+    "route": "Offline",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 320,
+    "route": "Activity",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 320,
+    "route": "Settings",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 390,
+    "route": "Wallet",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 390,
+    "route": "Send",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 390,
+    "route": "Receive",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 390,
+    "route": "Offline",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 390,
+    "route": "Activity",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 390,
+    "route": "Settings",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 768,
+    "route": "Wallet",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 768,
+    "route": "Send",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 768,
+    "route": "Receive",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 768,
+    "route": "Offline",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 768,
+    "route": "Activity",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 768,
+    "route": "Settings",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 1440,
+    "route": "Wallet",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 1440,
+    "route": "Send",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 1440,
+    "route": "Receive",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 1440,
+    "route": "Offline",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 1440,
+    "route": "Activity",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 1440,
+    "route": "Settings",
+    "targets": [],
+    "small": [],
+    "bodyOverflow": false,
+    "pageOverflow": false
+  }
+]

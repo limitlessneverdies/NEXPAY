@@ -1,0 +1,6 @@
+{
+  "name":"paila-test-wallet-server","version":"0.1.0","private":true,"type":"module",
+  "description":"Device-signed, test-credit wallet and reserved offline payment ledger. Not real money.",
+  "engines":{"node":">=24.0.0"},
+  "scripts":{"start":"node src/server.mjs","test":"node --test test/*.test.mjs","check":"node --check src/server.mjs && node --check src/protocol.mjs && node --check src/ledger.mjs"}
+}
