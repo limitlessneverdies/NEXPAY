@@ -18,7 +18,7 @@ data class Receipt(val id: String, val amount: Long, val status: String, val err
 data class Entry(val id: String, val amount: Long, val name: String, val kind: String, val created: Long)
 data class WalletState(
     val ready: Boolean = false, val name: String = "", val walletId: String = "", val balance: Long = 0,
-    val reserved: Long = 0, val total: Long = 0,
+    val reserved: Long = 0, val total: Long = 0, val pending: Long = 0,
     val server: String = "", val issuer: String = "", val connected: Boolean = false, val busy: Boolean = false,
     val error: String = "", val message: String = "", val notes: List<Note> = emptyList(), val incoming: List<Receipt> = emptyList(),
     val outgoing: List<Receipt> = emptyList(), val activity: List<Entry> = emptyList(), val queued: Int = 0, val nextTopup: Long = 0,
@@ -37,6 +37,7 @@ class WalletRepository(context: Context) {
         mutable.value = WalletState(
             ready = s.has("walletId"), name = s.optString("name"), walletId = s.optString("walletId"), balance = s.optLong("balanceMinor"),
             reserved = s.optLong("reservedMinor"), total = s.optLong("totalMinor"),
+            pending = root.array("incoming").objects().filter { it.getString("status") == "pending" }.sumOf { it.getLong("amount") },
             server = root.optString("server"), issuer = root.optJSONObject("config")?.optString("issuerFingerprint") ?: "", connected = connected,
             busy = busy, error = error, message = message,
             notes = (s.optJSONArray("vouchers") ?: JSONArray()).objects().map { n -> Note(n.getString("id"), n.getLong("amount"), n.getLong("expires"), sent.any { it.getString("id") == n.getString("id") }, n.getString("status")) },

@@ -82,3 +82,25 @@ Sender re-shows the identical outbox packet; it cannot reassign a shared note. R
 - Radio transports need two physical devices for final validation (single-device flows verified on emulator).
 - QR carries ≤ 2 hops; deeper chains use Bluetooth/Wi-Fi/NFC.
 - No account recovery; uninstall loses the wallet. No real-money use without a licensed partner and independent review.
+
+## Spec alignment (friend-spec → this implementation)
+
+Source design: the NexPay transaction-process specification (online/offline modes, STP, chain of custody, two-phase commit, reconciliation). Mapping:
+
+| Spec concept | Status here |
+|---|---|
+| Online mode (auth → validate → risk → create → record → settle → notify) | Implemented: review screen → key-authenticated request → server validates account/balance/idempotency → atomic ledger move → both balances update |
+| Offline eligibility (authenticated user, trusted device, reserve available, amount/TTL/version checks) | Implemented: screen-lock confirm gates creation; reserve/expiry/limits enforced at build; receiver re-validates everything |
+| STP fields (IDs, amount, timestamp, prev refs, state, TTL, signature) | Implemented: `voucher`/`root`, `fromKey`/`to`, `amountMinor`, `requestId` nonce, `createdAt`, `hop`/`prev`/`chain`, ECDSA signatures, canonical SHA-256 digests |
+| Two-phase commit (prepare → verify → commit + ACK, both ledgers persist) | Implemented on radios: receive → payment → signed ACK; sender persists before transmitting, receiver saves before ACKing, duplicates return identical ACKs |
+| Chain of custody (prev-hash micro-chain, ≤10 fingerprints) | Implemented to 6-deep max, 3 practical: every hop signature-checked offline, server rebuilds the graph at sync |
+| Reconciliation (batch upload, graph rebuild, risk/fraud scoring, PENDING_SYNC → SETTLED) | Implemented: auto-sync on reconnect, per-holder funding checks, remainder to owner, fraud log with both identities |
+| 50% reserve cap | Implemented: Rs 2,500 of Rs 5,000 auto-reserved, Rs 5,000 ceiling |
+| Offline usability ("payment completes locally") | Implemented: receiver sees pending as usable immediately and can forward without redeeming; finality at sync |
+| Transport selection by platform support | Implemented per transport with permission/location pre-checks and friendly errors; OEM validation outstanding |
+
+## User flows (mapped to screens)
+
+**Online:** Wallet → Send → recipient (QR/scan/paste, ID compared) → amount → Review (recipient, amount, method) → screen-lock confirm → server settles → both balances update → receipt. Status `settled`.
+
+**Offline:** Wallet → Send → QR/Bluetooth/Wi-Fi/NFC → recipient code → any amount up to pool → Review ("pending until settlement") → screen-lock confirm → packet saved → transmit (QR show / radio deliver + ACK) → receiver saves `pending` → receiver may forward immediately → on reconnect both sync → first valid redemption settles once.

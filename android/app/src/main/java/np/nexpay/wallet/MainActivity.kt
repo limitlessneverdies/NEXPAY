@@ -10,7 +10,9 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.location.LocationManager
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -32,6 +34,8 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -110,8 +114,18 @@ class MainActivity : ComponentActivity() {
             else { Protocol.readReceive(raw); receiveRaw = raw; screen = "Send"; paymentPacket = "" }
         } }
     }
-    private fun runSafe(block: () -> Unit) { try { block() } catch (e: Exception) { localError = e.message ?: "Could not complete this action" } }
-    private fun work(block: suspend () -> Unit) { lifecycleScope.launch { try { block() } catch (e: Exception) { localError = e.message ?: "Could not complete this action" } } }
+    private fun friendly(e: Throwable): String {
+        var t: Throwable? = e
+        while (t != null) {
+            if (t is java.net.UnknownHostException || t is java.net.ConnectException || t is java.net.SocketTimeoutException || t is javax.net.ssl.SSLException) return "You're offline. Everything is saved and will sync when you reconnect."
+            val m = (t.message ?: "").lowercase()
+            if (m.contains("unable to resolve host") || m.contains("no address associated") || m.contains("network is unreachable") || m.contains("connection refused") || m.contains("timed out") || m.contains("econnrefused") || m.contains("enotfound")) return "You're offline. Everything is saved and will sync when you reconnect."
+            t = t.cause
+        }
+        return e.message ?: "Could not complete this action"
+    }
+    private fun runSafe(block: () -> Unit) { try { block() } catch (e: Exception) { localError = friendly(e) } }
+    private fun work(block: suspend () -> Unit) { lifecycleScope.launch { try { block() } catch (e: Exception) { localError = friendly(e) } } }
     private fun permissionThen(requested: Array<String>, action: () -> Unit) {
         val missing = requested.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isEmpty()) runSafe(action) else { afterPermission = action; permissions.launch(missing.toTypedArray()) }
@@ -123,7 +137,11 @@ class MainActivity : ComponentActivity() {
             if (a.isEnabled) action() else { afterBluetooth = action; bluetoothEnable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
         }
     }
-    private fun wifiThen(action: () -> Unit) = permissionThen(if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), action)
+    private fun wifiThen(action: () -> Unit) = permissionThen(if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), {
+        if (getSystemService(WifiManager::class.java)?.isWifiEnabled != true) { localError = "Turn on Wi-Fi first (no internet needed, just the switch)."; return@permissionThen }
+        if (Build.VERSION.SDK_INT >= 28 && getSystemService(LocationManager::class.java)?.isLocationEnabled == false) { localError = "Turn on Location mode for Wi-Fi Direct discovery (your location is never used)."; return@permissionThen }
+        action()
+    })
     private fun authenticate(action: () -> Unit) {
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (!keyguard.isDeviceSecure) { localError = "Set a phone screen lock in Android Security settings before confirming payments."; return }
@@ -306,7 +324,7 @@ class MainActivity : ComponentActivity() {
         CardBlock {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Outlined.WifiOff, null, Modifier.size(24.dp))
-                Column { Text("Offline pocket", fontSize = 18.sp, fontWeight = FontWeight.SemiBold); Text(if (ready > 0) "Reserved for offline exchange." else "Prepare before you lose signal.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Column { Text("Offline pocket", fontSize = 18.sp, fontWeight = FontWeight.SemiBold); Text(if (ready > 0) "Reserved for offline exchange." else "Prepare before you lose signal.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); if (s.pending > 0) Text(money(s.pending) + " received offline — usable now, settles on sync.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(money(ready), fontWeight = FontWeight.SemiBold)
@@ -471,11 +489,11 @@ class MainActivity : ComponentActivity() {
     Button(onClick = onClick, modifier = modifier.heightIn(min = 56.dp), shape = RoundedCornerShape(99.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp), colors = ButtonDefaults.buttonColors(containerColor = if (prominent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, contentColor = if (prominent) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)) { Icon(icon, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
 }
 @Composable private fun Notice(text: String, error: Boolean, dismiss: (() -> Unit)? = null) { Surface(color = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(20.dp)) { Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) { Icon(if (error) Icons.Outlined.ErrorOutline else Icons.Outlined.Info, null, Modifier.size(20.dp)); Text(text, Modifier.weight(1f), fontSize = 14.sp, color = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer); if (dismiss != null) IconButton(onClick = dismiss, modifier = Modifier.size(44.dp)) { Icon(Icons.Outlined.Close, "Dismiss message") } } } }
-@Composable private fun Qr(raw: String) {
+@Composable private fun Qr(raw: String, size: androidx.compose.ui.unit.Dp = 220.dp) {
     val result = remember(raw) { runCatching {
         require(raw.isNotBlank())
         val matrix = QRCodeWriter().encode(raw, BarcodeFormat.QR_CODE, 768, 768, mapOf(EncodeHintType.MARGIN to 4, EncodeHintType.CHARACTER_SET to "UTF-8"))
         Bitmap.createBitmap(768, 768, Bitmap.Config.ARGB_8888).apply { val pixels = IntArray(768 * 768) { i -> if (matrix.get(i % 768, i / 768)) android.graphics.Color.BLACK else android.graphics.Color.WHITE }; setPixels(pixels, 0, 768, 0, 0, 768, 768) }
     } }
-    result.getOrNull()?.let { Image(it.asImageBitmap(), "NexPay signed payment QR code", Modifier.fillMaxWidth().aspectRatio(1f).background(Color.White)) } ?: Text("QR code could not be displayed. Use Copy code instead.")
+    result.getOrNull()?.let { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Image(it.asImageBitmap(), "NexPay signed payment QR code", Modifier.size(size).background(Color.White, RoundedCornerShape(16.dp)).padding(8.dp)) } } ?: Text("QR code could not be displayed. Use Copy code instead.")
 }
