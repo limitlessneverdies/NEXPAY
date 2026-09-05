@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: nexpay-server
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_ENV
+        value: production
+      - key: MONEY_MODE
+        value: test
+      - key: ENABLE_WEB_WALLET
+        value: false
+      - key: PUBLIC_ORIGIN
+        value: https://nexpay-server.onrender.com
