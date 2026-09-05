@@ -131,7 +131,7 @@ class MainActivity : ComponentActivity() {
         if (intent == null) { localError = "Android could not open device confirmation. No payment was created."; return }
         afterCredential = action; credential.launch(intent)
     }
-    private fun scan(purpose: String) { scanPurpose = purpose; permissionThen(arrayOf(Manifest.permission.CAMERA)) { scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt(if (purpose == "payment") "Scan the sender's payment code" else "Scan the receiver's NexPay code").setBeepEnabled(false).setOrientationLocked(false)) } }
+    private fun scan(purpose: String) { scanPurpose = purpose; permissionThen(arrayOf(Manifest.permission.CAMERA)) { scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt(if (purpose == "payment") "Scan the sender's payment code" else "Scan the receiver's NexPay code").setBeepEnabled(false).setOrientationLocked(true)) } }
     private fun copy(value: String) { getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("NexPay payment code", value)); radioStatus = "Copied. Share only with your intended recipient." }
     private fun stopRadios() { nearby.stopTransfer(); nfc.stop(); NfcBus.clear(); peers = emptyList(); radioStatus = "" }
     private fun go(destination: String) { stopRadios(); screen = destination; paymentPacket = ""; receiveRaw = ""; if (destination == "Receive") ownReceive = repo.receiveCode() }
@@ -228,7 +228,7 @@ class MainActivity : ComponentActivity() {
                     ModalBottomSheet(onDismissRequest = { review = null }, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)) {
                         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                             Text(item.title, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.7).sp)
-                            Text("TEST CREDIT ONLY", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("DEMO BALANCE", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(money(item.amount), fontSize = 40.sp, letterSpacing = (-1.5).sp)
                             CardBlock { Text(item.person, fontSize = 20.sp, fontWeight = FontWeight.SemiBold); Text(item.details, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             Primary("Confirm") { review = null; item.action() }

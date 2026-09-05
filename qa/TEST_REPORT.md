@@ -6,6 +6,7 @@
 - Browser: 21/21 end-to-end checks pass against the new money model.
 - Android (`np.nexpay.wallet`, v0.3.0): unit tests, lint (0 errors) and assemble verified; installed on an Android 14 emulator, registered a wallet through the public server URL with Rs 5,000 total / Rs 2,500 offline pool confirmed in-app and in-ledger. Release APK is R8-obfuscated and signed with the stable key in `C:\Users\HP\PailaKeys`.
 - Radios still need two physical devices; no real-money use without a licensed partner and independent review.
+- v0.3.1: portrait-locked QR scanner, StrongBox-preferred Android Keystore keys (TEE fallback), server-side `fraud` log recording every rejected double-spend with both wallet identities (covered by test), backup disabled with no cleartext. Offline double-spend itself cannot be eliminated without online verification or tamper-proof hardware: the protocol guarantees detection, single settlement, and attribution — not prevention.
 
 ## Result and scope
 

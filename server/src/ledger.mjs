@@ -18,6 +18,7 @@ export class Ledger {
       CREATE INDEX IF NOT EXISTS journal_account ON journal(account,seq DESC);
       CREATE INDEX IF NOT EXISTS voucher_owner ON vouchers(owner,status);
       CREATE TABLE IF NOT EXISTS operations(wallet TEXT NOT NULL REFERENCES accounts(id), op_id TEXT NOT NULL, digest TEXT NOT NULL, response TEXT NOT NULL, PRIMARY KEY(wallet,op_id));
+      CREATE TABLE IF NOT EXISTS fraud(id TEXT PRIMARY KEY, note TEXT NOT NULL, first_recipient TEXT, attempt_recipient TEXT NOT NULL, payment_hash TEXT NOT NULL, created INTEGER NOT NULL);
       CREATE TRIGGER IF NOT EXISTS journal_immutable_update BEFORE UPDATE ON journal BEGIN SELECT RAISE(ABORT,'Journal is immutable'); END;
       CREATE TRIGGER IF NOT EXISTS journal_immutable_delete BEFORE DELETE ON journal BEGIN SELECT RAISE(ABORT,'Journal is immutable'); END;
       PRAGMA user_version=1;`);
@@ -62,6 +63,14 @@ export class Ledger {
     fail(['state','pay','topup','reserve','redeem','reclaim'].includes(r.op),'UNKNOWN_OPERATION','Unknown wallet action.');
     if(r.op==='state')return this.state(actor.id);
     const digest=hash(canonical({op:r.op,data:r.data}));
+    if(r.op==='redeem'&&r.data&&typeof r.data.payment==='string'){
+      try{
+        const pre=readPayment(r.data.payment,this.pub,actor.id,this.clock(),true);
+        const prow=this.db.prepare('SELECT * FROM vouchers WHERE id=?').get(pre.note.id);
+        if(prow&&prow.status==='redeemed'&&prow.recipient!==actor.id)
+          this.db.prepare('INSERT OR IGNORE INTO fraud(id,note,first_recipient,attempt_recipient,payment_hash,created) VALUES(?,?,?,?,?,?)').run(pre.paymentHash,prow.id,prow.recipient,actor.id,pre.paymentHash,this.clock());
+      }catch{}
+    }
     return this.atomic(()=>{
       const old=this.db.prepare('SELECT * FROM operations WHERE wallet=? AND op_id=?').get(actor.id,r.opId);
       if(old){fail(old.digest===digest,'IDEMPOTENCY_CONFLICT','This operation ID was already used for a different request.',409);return JSON.parse(old.response);}
@@ -89,6 +98,7 @@ export class Ledger {
           fail(row&&row.certificate===payment.voucher,'UNKNOWN_NOTE','Note is not present in this issuer ledger.',409);
           if(row.status==='redeemed'){
             fail(row.recipient===actor.id&&row.transfer_hash===paymentHash,'DOUBLE_SPEND','This note was already redeemed for another payment.',409);
+            this.db.prepare('DELETE FROM fraud WHERE payment_hash=?').run(paymentHash);
             const prior=this.db.prepare('SELECT response FROM operations WHERE digest=?').get(digest);
             if(prior)return JSON.parse(prior.response);
             result={status:'settled',txId:row.tx_id,amountMinor:row.settled_amount??row.amount,noteId:row.id,remainderMinor:0,remainderId:null};break;

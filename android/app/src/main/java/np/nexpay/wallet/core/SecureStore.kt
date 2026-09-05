@@ -1,6 +1,7 @@
 package np.nexpay.wallet.core
 
 import android.content.Context
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
@@ -22,11 +23,17 @@ class SecureStore(context: Context) {
     private val storageAlias = "paila.wallet.store.v1"
     init {
         check(!file.baseFile.exists() || (ks.containsAlias(signingAlias) && ks.containsAlias(storageAlias))) { "Wallet encryption key unavailable. Do not clear app storage; recover from your server operator." }
-        if (!ks.containsAlias(signingAlias)) KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore").apply {
-            initialize(KeyGenParameterSpec.Builder(signingAlias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY).setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1")).setDigests(KeyProperties.DIGEST_SHA256).build()); generateKeyPair()
+        if (!ks.containsAlias(signingAlias)) {
+            val gen = { strongBox: Boolean -> KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore").apply {
+                initialize(KeyGenParameterSpec.Builder(signingAlias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY).setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1")).setDigests(KeyProperties.DIGEST_SHA256).apply { if (strongBox && Build.VERSION.SDK_INT >= 28) setIsStrongBoxBacked(true) }.build()); generateKeyPair()
+            } }
+            try { gen(true) } catch (_: Exception) { gen(false) }
         }
-        if (!ks.containsAlias(storageAlias)) KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
-            init(KeyGenParameterSpec.Builder(storageAlias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setRandomizedEncryptionRequired(true).build()); generateKey()
+        if (!ks.containsAlias(storageAlias)) {
+            val gen = { strongBox: Boolean -> KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
+                init(KeyGenParameterSpec.Builder(storageAlias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setRandomizedEncryptionRequired(true).apply { if (strongBox && Build.VERSION.SDK_INT >= 28) setIsStrongBoxBacked(true) }.build()); generateKey()
+            } }
+            try { gen(true) } catch (_: Exception) { gen(false) }
         }
     }
     val publicKey: String get() = Protocol.b64(ks.getCertificate(signingAlias).publicKey.encoded)
