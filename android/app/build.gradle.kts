@@ -6,8 +6,8 @@ android {
         applicationId = "np.nexpay.wallet"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.3.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val apiUrl = providers.gradleProperty("PAILA_API_URL").orElse("").get()
         require(apiUrl.isEmpty() || (apiUrl.startsWith("https://") && !apiUrl.contains('"') && !apiUrl.contains('\\') && !apiUrl.contains('\n')))

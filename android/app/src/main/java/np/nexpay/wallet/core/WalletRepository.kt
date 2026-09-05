@@ -18,7 +18,7 @@ data class Receipt(val id: String, val amount: Long, val status: String, val err
 data class Entry(val id: String, val amount: Long, val name: String, val kind: String, val created: Long)
 data class WalletState(
     val ready: Boolean = false, val name: String = "", val walletId: String = "", val balance: Long = 0,
-    val reserved: Long = 0, val total: Long = 0, val pending: Long = 0,
+    val reserved: Long = 0, val total: Long = 0, val pending: Long = 0, val spent: Long = 0,
     val server: String = "", val issuer: String = "", val connected: Boolean = false, val busy: Boolean = false,
     val error: String = "", val message: String = "", val notes: List<Note> = emptyList(), val incoming: List<Receipt> = emptyList(),
     val outgoing: List<Receipt> = emptyList(), val activity: List<Entry> = emptyList(), val queued: Int = 0, val nextTopup: Long = 0,
@@ -38,6 +38,7 @@ class WalletRepository(context: Context) {
             ready = s.has("walletId"), name = s.optString("name"), walletId = s.optString("walletId"), balance = s.optLong("balanceMinor"),
             reserved = s.optLong("reservedMinor"), total = s.optLong("totalMinor"),
             pending = root.array("incoming").objects().filter { it.getString("status") == "pending" }.sumOf { it.getLong("amount") },
+            spent = root.array("outgoing").objects().filter { it.getString("status") == "prepared" || it.getString("status") == "delivered" }.sumOf { it.getLong("amount") },
             server = root.optString("server"), issuer = root.optJSONObject("config")?.optString("issuerFingerprint") ?: "", connected = connected,
             busy = busy, error = error, message = message,
             notes = (s.optJSONArray("vouchers") ?: JSONArray()).objects().map { n -> Note(n.getString("id"), n.getLong("amount"), n.getLong("expires"), sent.any { it.getString("id") == n.getString("id") }, n.getString("status")) },
@@ -49,7 +50,17 @@ class WalletRepository(context: Context) {
         )
     }
     fun clearMessage() = publish(error = "", message = "")
-    fun showError(e: Throwable) = publish(busy = false, error = e.message ?: "Something went wrong. Retry safely.")
+    fun showError(e: Throwable) = publish(busy = false, error = friendlyNet(e))
+    private fun friendlyNet(e: Throwable): String {
+        var t: Throwable? = e
+        while (t != null) {
+            if (t is java.net.UnknownHostException || t is java.net.ConnectException || t is java.net.SocketTimeoutException || t is javax.net.ssl.SSLException) return "You're offline. Everything is saved and will sync when you reconnect."
+            val m = (t.message ?: "").lowercase()
+            if (m.contains("unable to resolve host") || m.contains("no address associated") || m.contains("network is unreachable") || m.contains("connection refused") || m.contains("timed out") || m.contains("econnrefused") || m.contains("enotfound") || m.contains("software caused connection abort") || m.contains("connection reset") || m.contains("broken pipe")) return "You're offline. Everything is saved and will sync when you reconnect."
+            t = t.cause
+        }
+        return e.message ?: "Something went wrong. Retry safely."
+    }
     suspend fun create(server: String, name: String) = withContext(Dispatchers.IO) { mutex.withLock {
         publish(busy = true, error = "")
         try {
@@ -64,7 +75,7 @@ class WalletRepository(context: Context) {
             val s = Api.call(url, "/v1/wallets", store.sign("register", request))
             require(s.getString("walletId") == Protocol.walletId(store.publicKey)) { "Server returned a different wallet" }
             store.update { it.put("serverState", s) }; publish(connected = true, busy = false, message = "Welcome to NexPay. Rs 5,000 ready.")
-        } catch (e: Exception) { publish(connected = false, busy = false, error = e.message ?: "Could not create wallet") }
+        } catch (e: Exception) { publish(connected = false, busy = false, error = friendlyNet(e)) }
     } }
     private fun call(root: JSONObject, op: String, data: JSONObject, opId: String): JSONObject {
         val req = Protocol.obj("v" to 1, "walletId" to Protocol.walletId(store.publicKey), "op" to op, "opId" to opId, "ts" to System.currentTimeMillis(), "data" to data)
@@ -119,7 +130,7 @@ class WalletRepository(context: Context) {
                 }
             }
             publish(connected = true, busy = false, message = message)
-        } catch (e: Exception) { publish(connected = false, busy = false, error = "${e.message ?: "Server unavailable"}. Saved requests are safe to retry.") }
+        } catch (e: Exception) { publish(connected = false, busy = false, error = friendlyNet(e) + " Saved requests are safe to retry.") }
     } }
     fun receiveCode(): String {
         check(state.value.ready) { "Set up online first" }; val now = System.currentTimeMillis()

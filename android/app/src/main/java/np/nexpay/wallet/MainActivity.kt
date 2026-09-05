@@ -306,12 +306,12 @@ class MainActivity : ComponentActivity() {
             Image(painterResource(R.drawable.wallet_art), null, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
             Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Total balance", fontSize = 14.sp, color = Ink); Text("NPR", fontSize = 14.sp, color = Ink) }
-                AnimatedContent(targetState = s.total, transitionSpec = { fadeIn(tween(if (ValueAnimator.areAnimatorsEnabled()) 220 else 0)).togetherWith(fadeOut(tween(0))) }, label = "Confirmed balance") { balance ->
+                AnimatedContent(targetState = s.total - s.spent + s.pending, transitionSpec = { fadeIn(tween(if (ValueAnimator.areAnimatorsEnabled()) 220 else 0)).togetherWith(fadeOut(tween(0))) }, label = "Confirmed balance") { balance ->
                     Text(money(balance), color = Ink, fontSize = (if (money(balance).length > 13) 30 else 40).sp, lineHeight = 48.sp, letterSpacing = (-1.5).sp, fontWeight = FontWeight.Medium)
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Not real money", fontSize = 14.sp, color = Ink)
+                    if (s.pending > 0) Text(money(s.pending) + " synced soon", fontSize = 14.sp, color = Ink) else Text("Not real money", fontSize = 14.sp, color = Ink)
                     FilledTonalButton(onClick = { requestTopup() }, enabled = !s.busy && s.queued == 0 && System.currentTimeMillis() >= s.nextTopup, colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color.White.copy(alpha = .9f), contentColor = Ink), contentPadding = PaddingValues(horizontal = 12.dp), modifier = Modifier.heightIn(min = 44.dp)) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Top up", fontSize = 14.sp) }
                 }
             }
@@ -455,7 +455,7 @@ class MainActivity : ComponentActivity() {
             Primary("Add Rs 5,000", !s.busy && s.queued == 0 && System.currentTimeMillis() >= s.nextTopup) { requestTopup() }
             if (System.currentTimeMillis() < s.nextTopup) Text("Next top-up: ${date(s.nextTopup)}", fontSize = 14.sp)
         }
-        Text("NexPay 0.3 · Demo network\nDevice-held keys. Encrypted local storage. Signed payments. Demo balance only — not connected to banks or real money. Do not disable Play Protect to install this app.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("NexPay " + BuildConfig.VERSION_NAME + " · Demo network\nDevice-held keys. Encrypted local storage. Signed payments. Demo balance only — not connected to banks or real money. Do not disable Play Protect to install this app.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     @Composable private fun EntryRow(e: Entry) {
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
