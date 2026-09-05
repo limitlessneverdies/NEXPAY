@@ -1,50 +1,84 @@
-# Paila v1 test protocol
+# NexPay protocol v0.4 — Secure Transaction Packages with chain of custody
+
+Offline-first payments: signed value moves phone-to-phone with no server at the moment of payment. The server rebuilds the transfer graph on sync, validates every signature, settles exactly once, and logs fraud with attribution.
+
+Prior spec: Paila v1 test protocol (single-hop exact notes). v0.2 added pool reserves and partial redemption. v0.3 became NexPay (Rs 5,000 grants, 50% auto-reserve). **v0.4 adds chained custody transfers, per-holder funding limits, a fraud log, and transport-aware hop caps.**
 
 ## Units and encoding
 
-Display currency is **test NPR**, protocol code `tNPR`. 100 paisa = 1 test rupee. All money values are positive safe integer paisa; no binary floating point is used in server ledger operations.
+Display currency is NPR with paisa integers (100 paisa = Rs 1). All money values are positive safe integers; no floating point in ledger operations. (Protocol code `tNPR`, mode `test`: demo balance, not real money.)
 
-Envelope: `p1.<base64url(JSON UTF-8 bytes)>.<base64url(ECDSA DER signature)>`. No padding is accepted. Signature input is exactly `paila:<kind>:v1:<encodedPayload>`. SHA-256, P-256, DER signatures; public keys are SPKI DER encoded as base64url. Different object kinds have separate signature domains. The original encoded JSON is verified, never a reserialized object. Canonically sorted JSON is used only for semantic idempotency and receipt hashing, not as a replacement for verifying the signed bytes.
+Envelope: `p1.<base64url(JSON UTF-8)>.<base64url(ECDSA DER signature)>`. Signature input is exactly `paila:<kind>:v1:<encodedPayload>`. SHA-256, P-256, DER signatures; public keys are canonical SPKI DER base64url. Separate signature domains per kind. The original encoded bytes are verified, never a reserialization. Canonical JSON is used only for idempotency digests and receipt hashing.
 
-Wallet ID: `pa_` + first 32 lowercase hex characters of SHA-256(SPKI bytes). Issuer fingerprint: full SHA-256(SPKI bytes). Every payload has `v: 1`.
+Wallet ID: `pa_` + first 32 hex chars of SHA-256(SPKI). Issuer fingerprint: full SHA-256(SPKI). Every payload has `v: 1`.
 
-## Routes
+## The STP (Secure Transaction Package)
 
-- `GET /health`: status and test mode; no secret or balance.
-- `GET /v1/config`: issuer public key, fingerprint, limits.
-- `POST /v1/wallets`, body `{ "envelope": "..." }`: `register` domain. Fields publicKey, name, opId, ts. First registration credits 100,000; retries with same key do not.
-- `POST /v1/actions`: `request` domain. Fields walletId, op, opId, ts, data. Request authentication uses the registered public key, not a caller-supplied replacement.
+Every transfer travels as one atomic signed payload:
 
-Actions:
-- state: data `{}`. Returns available balance, up to 500 owner notes and latest 100 ledger entries.
-- pay: `{to,amountMinor,note?}`. Settled online transaction.
-- topup: `{}`. Adds 100,000 test paisa, once every 24 hours after the first top-up.
-- reserve: `{amountMinor}`. Creates exact-value issuer-signed note; reserve moves available balance to escrow.
-- redeem: `{payment}`. Authenticated recipient presents signed offline payment.
-- reclaim: `{noteId}`. Authenticated owner, only after expiry + seven-day grace.
+| Field | Meaning |
+|---|---|
+| `voucher` / `root` | Issuer-signed reserve note (hop 0 carries it; deeper hops reference `chain[0]`) |
+| `fromKey` | Sender's SPKI public key (defaults to note owner on hop 0) |
+| `to` | Recipient wallet ID (single-recipient lock) |
+| `amountMinor` | Paisa; any value up to what the sender holds (partial spends generate server-issued remainder) |
+| `requestId` | 16–80 char nonce; replay-resistant operation identity |
+| `createdAt` | Sender timestamp, skew-checked |
+| `hop`, `prev`, `chain` | Custody linkage: hop index, previous transfer hash, ancestor envelopes |
 
-Mutation idempotency is scoped to wallet + opId. SHA-256 of canonically ordered op/data detects changed payloads under one ID. No automatic new ID on timeout. Server responses to duplicate mutations need not contain the latest balance: clients separately fetch state.
+## Chain of custody
 
-## Offline objects
+- Hop 0: note owner signs from a server-issued reserve note.
+- Hop N>0: holder signs `{..., hop: N, prev: hash(parent), chain: [...ancestors, parent]}`.
+- Each hop is verified **offline** by the receiver: every ancestor signature, sender continuity (`fromKey` matches previous `to`), strictly decreasing-or-equal amounts, hop count, root voucher (issuer, owner binding, 24h window).
+- Protocol max: **6 hops**. Practical transport caps: **QR ≤ 2** (code density), **Bluetooth/Wi-Fi ≤ 3** (23KB frames), **NFC ≤ 6** (chunked APDUs). Chains grow ~2.3× per hop by measured size — physics, not policy.
+- Opportunistic forwarding: any holder of a pending transfer can forward up to what they received, without redeeming first.
 
-`receive`, signed by receiver: publicKey, walletId, name, requestId, createdAt, expiresAt. Name is user-selected, not KYC. Receivers and senders must compare the displayed ID.
+## Two-phase commit (radios)
 
-`voucher`, signed by issuer: issuer fingerprint, id, owner, ownerKey, amount, createdAt, expiresAt. Database tracks the exact certificate and status. A valid signature alone cannot create server liability absent that ledger entry.
+Receive request → payment → signed ACK. The sender persists the outbox packet **before** transmitting and always re-shares the identical packet (never a fresh note). The receiver durably saves **before** ACKing; duplicate packets return the identical ACK (idempotent by payment hash). Transport loss surfaces as "connection lost, retry" — one safe automatic retry on the sender side — never a raw socket error, never a duplicate spend.
 
-`payment`, signed by note owner: voucher (full envelope), to, requestId, createdAt. The full note is transferred; no change or chained spending is supported. Sender marks the note spent in atomic local storage before any QR/radio output.
+## Settlement and reconciliation
 
-`ack`, signed by recipient: paymentHash, walletId, status `received_pending`. ACK is receipt confirmation, NOT issuer settlement. Payment hash is SHA-256 of canonical payment payload JSON. Recipient must durably save before ACK.
+On reconnect the client uploads pending transfers. The server, per transfer:
 
-## Transport framing
+1. Validates the full chain (signatures, continuity, amounts, hop cap, root window + 7-day grace).
+2. Checks family funds: settled amount ≤ reserved pool; remainder auto-returns to the note owner as a new reserve note.
+3. Checks holder funding: `forwarded + amount ≤ (owner? root amount) + received` — a forwarder can never pass on more than they received.
+4. Records every hop as a graph edge; moves escrow → recipient once; replies are idempotent per operation.
 
-QR: native ZXing writer/scanner; request code, then payment code. Text copy/paste is a fallback. Payment QR density requires real-device tests.
+Outcomes: `settled` (once), replay of the same payment (identical original), `DOUBLE_SPEND` / `OVERSPEND` / `FORWARD_LIMIT` rejections — every rejected double-spend writes a `fraud` row naming note, first recipient, and attempter.
 
-Bluetooth: secure RFCOMM service UUID `0c658bf0-1de7-44c6-8a4e-2a9d5418d021`. Receiver listens and requests discoverability; sender discovers or chooses a paired peer; Android pairing occurs as needed. Each UTF-8 message is prefixed with a 4-byte big-endian length in [1,23000]. Sequence receive request → payment → signed ACK.
+## What double-spend protection actually guarantees
 
-Wi-Fi Direct: receiver creates a group and listens on TCP 47872; sender joins as client. Same frame/sequence. Group selection and radio permissions must be tested on actual OEM devices. This is a local peer socket, not the public issuer endpoint.
+- **Prevented:** overspending a note family, replay minting, redirecting a payment, reusing one packet twice for value.
+- **Detected + attributed:** a compromised phone signing the same value twice offline — first valid redemption settles, later attempts fail with both identities logged.
+- **Not claimed:** preventing a malicious device from *attempting* a fork offline. Prevention happens at settlement — the only place it mathematically can without tamper-proof hardware. StrongBox-backed keys (TEE fallback) raise the cost of key cloning.
 
-NFC: proprietary AID `F05041494C4101`, category `other`, not EMV. Receiver must keep Paila Receive NFC active and unlocked. First tap reads signed receiver request; sender then confirms. Second tap streams the prepared payment and receives ACK. CLA 0x80; commands 01/02 request length/chunks, 03/04/05 start/write/commit payment, 06/07 ACK length/chunks. Chunks <=200 bytes, bounded total <=23000. Re-taps must use the SAME saved payment, never a fresh note. Hardware validation is outstanding.
+## Offline reserve
+
+Rs 5,000 granted at registration: Rs 2,500 available + Rs 2,500 auto-reserved (50% cap, matching the controlled-exposure design). Manual top-up to Rs 5,000 reserved total. Notes expire in 24h; refunds after a further 7-day redemption window; daily Rs 5,000 top-up.
+
+## Routes and actions
+
+- `GET /health`, `GET /v1/config` (issuer key, fingerprint, limits).
+- `POST /v1/wallets` (`register`): name + key → Rs 5,000 grant + auto-reserve; idempotent per key.
+- `POST /v1/actions` (`request` domain, key-authenticated): `state` (available, reserved, total, notes, journal), `pay` (online), `topup` (daily), `reserve`, `redeem` (chain-aware), `reclaim`.
+- Mutation idempotency scoped to wallet + opId, with digest-mismatch conflicts. Duplicate submissions return the original response, never fresh money.
+
+## Objects
+
+- `receive`: receiver-signed request (key, wallet, name, requestId, 24h window). Names are self-chosen; compare wallet IDs.
+- `voucher`: issuer-signed note (fingerprint, id, owner, ownerKey, amount, 24h window). Server liability exists only for ledger-tracked certificates — signature alone creates nothing.
+- `payment`: owner/holder-signed transfer (above). Senders lock the packet before sharing; receivers save before ACK.
+- `ack`: recipient-signed `{paymentHash, received_pending}` — receipt confirmation, NOT settlement.
 
 ## Crash/retry contract
 
-Sender can always display the saved outbox packet for the same recipient; it cannot cancel and reassign an already-shared note. Recipient retries settlement with its saved opId. Backend rejects a different redemption of one note. On reconnect, pending receipts are settled or visibly rejected. Never turn a rejected receipt into spendable balance.
+Sender re-shows the identical outbox packet; it cannot reassign a shared note. Recipient retries with its saved opId. The backend settles the first valid redemption per funds and rejects the rest visibly. Rejected receipts never become spendable. Remainder change returns to the note owner.
+
+## Gap log (tested, not hidden)
+
+- Radio transports need two physical devices for final validation (single-device flows verified on emulator).
+- QR carries ≤ 2 hops; deeper chains use Bluetooth/Wi-Fi/NFC.
+- No account recovery; uninstall loses the wallet. No real-money use without a licensed partner and independent review.

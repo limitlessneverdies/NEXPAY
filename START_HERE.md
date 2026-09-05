@@ -31,7 +31,7 @@ $env:PUBLIC_ORIGIN='http://127.0.0.1:8787'
 npm start
 ```
 
-Open `http://127.0.0.1:8787/lab`. That is a **local browser test**, not a public download link. Use a normal and a private browser window to create two different test wallets. Enter different names. Each gets 1,000 test rupees from the server.
+Open `http://127.0.0.1:8787/lab`. That is a **local browser test**, not a public download link. Use a normal and a private browser window to create two different test wallets. Enter different names. Each gets Rs 5,000 from the server (Rs 2,500 available + Rs 2,500 auto-reserved for offline).
 
 Try Receive → Copy receive code on one wallet, then Send → paste code → amount → Review → Confirm on the other. To test offline: prepare a Rs 100 note first, switch to Offline QR, and exchange the resulting signed payment. Pending receipts become spendable only after Sync settles them.
 
